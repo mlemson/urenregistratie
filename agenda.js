@@ -65,7 +65,7 @@ function allocateUntimed(records, startMinute=8*60){
 function timeWeek(ctx,days,rows){
  const now=ctx.today;
  const assigned=days.map(date=>rows.filter(r=>r.Datum===date));
- const visual=assigned.map(allocateUntimed);
+ const visual=assigned.map(records=>allocateUntimed(records));
  const intervals=assigned.flat().map(interval).filter(Boolean);
  const approximate=visual.flatMap(x=>Array.from(x.slots.values()));
  const allTimes=intervals.concat(approximate);
