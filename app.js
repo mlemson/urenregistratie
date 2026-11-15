@@ -132,7 +132,7 @@ function renderSettings(){let a=app.db.Activiteiten;let summary=app.cloud.connec
 function renderAgenda(){
  const calendar=window.LAAgenda;
  if(!calendar){$('app').innerHTML='<div class="card card-pad">Agenda is niet geladen. Vernieuw de website.</div>';return;}
- if(!calendar.toDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(app.agendaDate))app.agendaDate=`${app.year}-01-01`;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(app.agendaDate))app.agendaDate=`${app.year}-01-01`;
  $('app').innerHTML=calendar.render({
   year:app.year,anchor:app.agendaDate,mode:app.agendaMode,project:app.agendaProject,kind:app.agendaKind,
   selectedId:app.agendaSelected,today:today(),entries:app.db.Registraties,projects:app.db.Projecten,
@@ -254,7 +254,7 @@ function saveEntryEdit(id){
  const msg=$('editError'),fail=t=>{if(msg)msg.textContent=t;};
  const date=$('editDate').value,pr=$('editProject').value,activity=$('editActivity').value;
  const start=$('editStartTime')?.value||'',end=$('editEndTime')?.value||'';
- if(yearFromDate(date)!==app.year||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))return fail('Vul een datum in dit jaar in.');
+ if(yearFromDate(date)!==app.year||!/^\d{4}-\d{2}-\d{2}$/.test(date))return fail('Vul een datum in dit jaar in.');
  if(!project(pr))return fail('Kies een geldig project.');
  if(!activity)return fail('Kies een activiteit.');
  if(Boolean(start)!==Boolean(end))return fail('Vul beide tijden in, of laat beide leeg.');
