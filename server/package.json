@@ -1,0 +1,6 @@
+{
+  "name": "la-uren-stack-adapter",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" }
+}

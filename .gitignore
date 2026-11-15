@@ -9,3 +9,15 @@ importcontrole*.json
 .env
 .env.*
 .wrangler/
+
+# Overige privé- en ontwikkelbestanden
+*.XLSX
+*.NUMBERS
+*.CSV
+*.xlsm
+*.ods
+*.jsonl
+.DS_Store
+node_modules/
+.dev.vars
+.dev.vars.*

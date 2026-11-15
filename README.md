@@ -13,23 +13,54 @@ Het projectnummer toont meteen de projectomschrijving. Er zijn tien instelbare a
 
 ## STACK-koppeling
 
-De website draait als statische pagina. Om een privé-Excelbestand veilig vanuit elke browser op STACK te lezen en te schrijven is een kleine Cloudflare Worker nodig. De Worker gebruikt WebDAV. Het STACK-wachtwoord of WebDAV-token komt nooit in GitHub-broncode.
+De website (GitHub Pages) is openbaar; gegevens, WebDAV-adres en wachtwoorden staan alleen in het privé-Excel-moederbestand en in beveiligde Cloudflare Worker-instellingen. De browser krijgt nooit het STACK-token. De app vraagt bij het verbinden om een **aparte toegangscode** en bewaart die niet permanent in de browser.
 
-1. Maak in de STACK-webinterface een map, bijvoorbeeld `LA-Uren`, en plaats daar het Excel-bestand `LA-Uren-Km-2026.xlsx` in. Maak bij voorkeur een aparte STACK-gebruiker met alleen toegang tot die map en een WebDAV-toegangstoken (bij 2FA vereist).
-2. Publiceer de bestanden `index.html`, `app.js`, `style.css` en `seed.js` op een GitHub Pages-repository. Publiceer **geen** `.xlsx`, `.numbers`, archiefbestand, gegevens-export of tokens.
-3. Publiceer `server/worker.js` als Cloudflare Worker. Gebruik de `server/wrangler.toml` als uitgangspunt.
-4. Stel in de Worker-omgeving deze variabelen in (publiceer de waarden niet op GitHub):
-   - `APP_ORIGIN`: staat al ingesteld op `https://mlemson.github.io` in `wrangler.toml` (zonder `/urenregistratie`).
-   - `STACK_FOLDER_URL`: volledige WebDAV-URL van de map, gebruik doorgaans `https://<jouw-stack>.stack.storage/remote.php/webdav/LA-Uren` of het WebDAV-pad dat STACK zelf onder Instellingen toont. De link naar `/webdav/files/<gebruiker>` kan bij een andere WebDAV-toegang horen; controleer die in STACK.
-   - `STACK_USER`: STACK-gebruikersnaam, als **Secret**.
-   - `STACK_TOKEN`: STACK-WebDAV-token, als **Secret**.
-   - `APP_PASSWORD`: een lang, uniek wachtwoord voor de app, als **Secret** (niet hetzelfde als het STACK-token). Het wachtwoord blijft alleen in het geheugen van de open browserpagina en moet na vernieuwen opnieuw worden ingevoerd.
-   - `ORS_API_KEY` *(optioneel)*: OpenRouteService API-sleutel voor autoroutes, als **Secret**.
-5. Open **Instellingen** in de website, voer het publieke HTTPS-adres van je Worker en de `APP_PASSWORD` in, en kies **Verbinden met STACK**.
+### Eenmalig op STACK
 
-De app leest het Excelbestand bij verbinden. Wijzigingen worden vervolgens met een versiecontrole (ETag) opgeslagen. Wanneer een andere computer het bestand tussentijds wijzigt, stopt de app met overschrijven en vraagt om opnieuw in te laden. Download de lokale versie eerst als er een conflict is.
+1. Open de persoonlijke STACK-webinterface, maak de map **`LA-Uren`** aan in de hoofdmap (de Worker kan deze map ook bij de eerste opslag maken).
+2. Upload het privébestand `LA-Uren-Km-2026.xlsx` naar die map. De echte projecten en uren horen dus **niet** op GitHub. Maak in dezelfde map later een apart `LA-Uren-Km-2027.xlsx` via de webapp.
+3. Controleer onder de persoonlijke STACK-instellingen het **WebDAV-adres**. De officiële TransIP-indeling is `https://<account>.stack.storage/remote.php/webdav/`. Het browseradres `/webdav/files/<gebruiker>` is hiervoor niet geschikt. Een token is vereist wanneer voor STACK tweestapsverificatie actief is.
 
-Nieuwe jaren gebruiken een eigen bestand: `LA-Uren-Km-2027.xlsx`, enzovoort. Kies in Instellingen **Jaar aanmaken** om projecten/activiteiten over te nemen zonder oude registraties. Deze nieuwe jaarbestanden kunnen op dezelfde STACK-map worden opgeslagen.
+### Eenmalig op Cloudflare
+
+1. Log in bij [Cloudflare Workers & Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages) en zorg dat je het Workers-project kunt publiceren.
+2. Publiceer `server/worker.js` als Cloudflare Worker met de instellingen uit `server/wrangler.toml` (`APP_ORIGIN = https://mlemson.github.io`). Dat kan vanaf een lokale clone van de repository met:
+
+   ```bash
+   cd server
+   npx wrangler login
+   npx wrangler deploy
+   ```
+
+3. Ga in Cloudflare naar de **Worker → Settings → Variables and Secrets** en voeg de volgende vier waarden toe als **Secret**, niet als zichtbare tekstvariabele:
+
+   | Naam | Waarde |
+   | --- | --- |
+   | `STACK_FOLDER_URL` | Het echte WebDAV-mapadres, eindigend op `/remote.php/webdav/LA-Uren` |
+   | `STACK_USER` | De STACK-gebruikersnaam |
+   | `STACK_TOKEN` | Het STACK-WebDAV-token (of wachtwoord zonder 2FA) |
+   | `APP_PASSWORD` | Een nieuw, uniek, lang wachtwoord voor toegang via de webapp |
+
+   Optioneel: `ORS_API_KEY` als Secret voor rijroutes. Zet **nooit** een STACK-token in de repository, GitHub Pages, de URL of een screenshot.
+4. Activeer de Worker-route/het `workers.dev`-adres. De Worker bevat `GET /api/status` (alleen na inloggen), `GET/PUT /api/year/2026`, `GET/PUT /api/year/2027`, enzovoort. De Worker maakt de doelmap desgewenst bij de eerste opslag aan.
+5. Open de [website](https://mlemson.github.io/urenregistratie/), ga naar **Instellingen**, vul bij **Adres van de beveiligde koppeling** alleen het **`https://...workers.dev`**-adres in, en vul bij **Toegangscode** `APP_PASSWORD` in. Kies **Verbinden met STACK**.
+
+### Veilig bewaren
+
+- Bij elke wijziging slaat de app direct een lokale kopie op en probeert deze in de cloud te bewaren. Een waarschuwing is zichtbaar zolang STACK niet is bijgewerkt.
+- De versiecontrole met ETag voorkomt een normale verouderde overschrijving op een andere computer. Gebruik de app niet gelijktijdig op meerdere apparaten; de server is geen volwaardig samenwerkingsplatform met rijvergrendeling.
+- Zijn er lokale wijzigingen voor een bestaand online jaarbestand, dan vraagt de app om eerst een Excel-back-up te downloaden en daarna pas de online versie in te laden. Bij een conflict download je eerst de lokale kopie.
+- Download minimaal maandelijks en bij afsluiting van het jaar een aparte back-up. STACK en lokale browseropslag zijn niet hetzelfde als een onafhankelijk back-uparchief.
+- Laat naast de aparte app-toegangscode bij voorkeur Cloudflare-rate-limiting of Cloudflare Access instellen.
+
+### Testen
+
+```bash
+cd server
+npm test
+```
+
+Deze tests gebruiken alleen fictieve WebDAV-gegevens en bereiken niet de echte STACK-opslag. Een live verbinding kan pas worden bevestigd als de Cloudflare Worker is gepubliceerd en voorzien van de vier geheime instellingen.
 
 ## Registratie en fiscus
 
@@ -60,4 +91,4 @@ Bij ontbreken van STACK blijven gegevens lokaal in de browser. Dit is **geen ver
 
 ## GitHub Pages
 
-Publiceer via **Settings → Pages → Build and deployment → Deploy from a branch**, kies `main` en `/(root)` en sla op. Het adres wordt dan `https://mlemson.github.io/urenregistratie/`. De site is publiek, maar het werkbestand staat niet in de repository. De Cloudflare Worker moet apart worden gepubliceerd voordat STACK-synchronisatie kan werken.
+Publiceer via **Settings → Pages → Build and deployment → Deploy from a branch**, kies `main` en `/(root)` en sla op. Het adres wordt dan `https://mlemson.github.io/urenregistratie/`. De site is publiek, maar het werkbestand staat niet in de repository. De Cloudflare Worker moet apart worden gepubliceerd en met privéinstellingen worden verbonden voordat STACK-synchronisatie kan werken.
