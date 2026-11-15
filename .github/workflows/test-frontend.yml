@@ -20,4 +20,4 @@ jobs:
         with:
           node-version: '22'
       - run: node --check app.js
-      - run: node --test tests/frontend-sync.test.mjs
+      - run: node --test tests/*.test.mjs
