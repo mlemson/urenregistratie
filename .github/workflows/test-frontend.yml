@@ -1,15 +1,23 @@
-name: Controleer synchronisatie
+name: Controleer webapp
 on:
   push:
     branches: [main]
     paths:
       - app.js
-      - tests/frontend-sync.test.mjs
+      - agenda.js
+      - agenda-drag.js
+      - agenda.css
+      - index.html
+      - tests/**
       - .github/workflows/test-frontend.yml
   pull_request:
     paths:
       - app.js
-      - tests/frontend-sync.test.mjs
+      - agenda.js
+      - agenda-drag.js
+      - agenda.css
+      - index.html
+      - tests/**
       - .github/workflows/test-frontend.yml
 jobs:
   browserlogic:
