@@ -19,5 +19,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check app.js
+      - run: node --check app.js && node --check agenda.js && node --check agenda-drag.js
       - run: node --test tests/*.test.mjs

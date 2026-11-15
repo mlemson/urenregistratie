@@ -64,3 +64,48 @@ test('workweek follows Monday through Friday without weekend columns',()=>{
  assert.equal((html.match(/class="agenda-day-header /g)||[]).length,5);
  assert.match(html,/--agenda-days:5/);
 });
+test('historical entries are visual blocks beginning at 08:00, without writing invented times',()=>{
+ const old={Id:'a',Datum:'2026-11-09',Projectnummer:'P-1',Activiteit:'Schets',Uren:2};
+ const second={Id:'b',Datum:'2026-11-09',Projectnummer:'P-1',Activiteit:'Overleg',Uren:1.5};
+ const ctx={...context,mode:'werkweek',entries:[old,second]};
+ const html=cal.render(ctx);
+ assert.match(html,/agenda-event-untimed/);
+ assert.match(html,/Indicatief 08:00–10:00/);
+ assert.match(html,/Indicatief 10:00–11:30/);
+ assert.match(html,/data-start-minute="480"/);
+ assert.match(html,/Gestreepte blokken/);
+ assert.equal(old.Begintijd,undefined);
+ assert.equal(old.Eindtijd,undefined);
+ const allocation=cal.allocateUntimed([old,second]);
+ assert.equal(allocation.slots.get(old).start,480);
+ assert.equal(allocation.slots.get(second).end,690);
+ assert.equal(allocation.overflow.length,0);
+});
+
+test('actual timed and estimated untimed work both remain available without changing the original data',()=>{
+ const untimed={Id:'no',Datum:'2026-11-12',Projectnummer:'P-1',Activiteit:'Werken',Uren:3};
+ const timed={Id:'yes',Datum:'2026-11-12',Projectnummer:'P-1',Activiteit:'Overleg',Uren:1,Begintijd:'09:00',Eindtijd:'10:00'};
+ const html=cal.render({...context,mode:'dag',anchor:'2026-11-12',entries:[untimed,timed]});
+ assert.match(html,/Indicatief 08:00–11:00/);
+ assert.match(html,/09:00–10:00/);
+ assert.match(html,/data-id="no"/);
+ assert.match(html,/data-id="yes"/);
+ const alloc=cal.allocateUntimed([untimed,timed]);
+ const placed=cal.layout([untimed,timed],r=>cal.interval(r)||alloc.slots.get(r)||null);
+ assert.equal(placed.length,2);
+ assert.equal(placed[0].columns,2);
+ assert.equal(placed[1].columns,2);
+ assert.equal(untimed.Begintijd,undefined);
+});
+
+test('days exceeding sixteen untimed hours remain accessible without midnight overflow',()=>{
+ const big={Id:'long',Datum:'2026-11-10',Projectnummer:'P-1',Activiteit:'Werk',Uren:15};
+ const extra={Id:'extra',Datum:'2026-11-10',Projectnummer:'P-1',Activiteit:'Overleg',Uren:3};
+ const result=cal.allocateUntimed([big,extra]);
+ assert.equal(result.slots.get(big).end,23*60);
+ assert.equal(result.slots.has(extra),false);
+ assert.equal(result.overflow[0],extra);
+ const html=cal.render({...context,mode:'werkweek',entries:[big,extra]});
+ assert.match(html,/Niet ingetekend/);
+ assert.match(html,/data-id="extra"/);
+});

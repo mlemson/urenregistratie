@@ -4,9 +4,15 @@ Webapp voor Lemson Architecten. Geschikt voor actuele Windows- en macOS-browsers
 
 ## Agenda
 
-De webapp opent standaard in **Agenda** met werkweek-, week-, dag- en maandweergave. In de week staan uren met een begintijd en eindtijd als kalenderblokken met een vaste projectkleur. Overlappende tijdvakken komen naast elkaar te staan. Klik op een blok om de registratie te wijzigen of klik op een leeg halfuur om direct een nieuwe registratie met voorgestelde tijden aan te maken. Het rechterpaneel toont de geselecteerde registratie. In de maandweergave opent een klik op een datum de dagagenda.
+De standaardweergave is een compacte **werkweek** (maandag t/m vrijdag), met een keuze voor dag, volledige week of maand. Projecten krijgen een herkenbare kleur, dagtotalen en het weektotaal blijven zichtbaar. Klik op een registratie om deze in één venster te wijzigen.
 
-Tijden zijn **optioneel**. Beide tijden invullen berekent de duur automatisch; beide leeg laten maakt het mogelijk om alleen het aantal gewerkte uren vast te leggen. Oude registraties krijgen geen kunstmatige tijd en staan bij de desbetreffende week onder **Zonder tijd**. Bestaande uren blijven meetellen in alle totalen en declaraties. Bij een overlappend tijdvak verschijnt een bevestiging. Bewerkingen behouden kilometers, het declaratieverleden en de mutatielog. De Excel-gegevens bevatten twee extra kolommen, `Begintijd` en `Eindtijd`; oude moederbestanden blijven zonder conversiestap leesbaar. De nieuwe velden worden met het Excel-bestand op STACK opgeslagen, niet op GitHub.
+**Met de muis registreren:** klik op een leeg halfuur voor een voorgesteld tijdvak van één uur, of houd de muisknop ingedrukt en **sleep** in dezelfde dagkolom om een tijdvak van bijvoorbeeld 09:00–11:00 te selecteren. Een gekleurde selectie toont de exacte duur voordat het invoervenster opent. Pas na **Bewaren** worden de uren toegevoegd. Op aanraakschermen werkt gewoon aantikken; slepen is bedoeld voor muis/pen.
+
+**Oude uren zonder tijd:** deze verschijnen als **gestreepte indicatieve blokken vanaf 08:00**, binnen dezelfde dag achter elkaar. Zo blijft de kalender visueel bruikbaar. De app vult nadrukkelijk geen daadwerkelijke begintijden of eindtijden in Excel in. Je kunt de historische registratie aanklikken om de bestaande uren of later alsnog werkelijke tijden aan te passen. Is er op één dag meer dan zestien uur zonder tijd, dan blijven de resterende registraties toegankelijk onder 'Niet ingetekend'.
+
+Nieuwe uren kun je ook zonder tijd invoeren: beide tijdvelden leeg laten en alleen het aantal uren registreren. Als je beide tijdvelden invult, volgt het aantal uren automatisch uit het tijdsverschil. Overlappende registratieblokken staan naast elkaar. Het invoervenster waarschuwt bij nieuwe, daadwerkelijk overlappende tijdvakken. Bestaande projecturen, gedeeltelijke declaraties, ritgegevens en het mutatielog blijven behouden.
+
+De Excel-werkmap bewaart de optionele kolommen `Begintijd` en `Eindtijd`. Oudere jaarbestanden blijven zonder conversie leesbaar en de nieuwe velden gaan via de bestaande STACK-verbinding naar het privé-moederbestand. Er komen geen klantgegevens op GitHub.
 
 ## Direct gebruiken
 

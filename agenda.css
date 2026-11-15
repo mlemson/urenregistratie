@@ -46,3 +46,14 @@
 @media (max-width:1150px){.agenda-shell{grid-template-columns:minmax(0,1fr)}.agenda-aside{position:static}.agenda-filters-caption{display:none}}
 @media (max-width:700px){.agenda-top h1{font-size:24px}.agenda-top-actions{width:100%}.agenda-summary>div:not(.agenda-view-switch){min-width:93px;flex:1;padding:9px}.agenda-summary strong{font-size:18px}.agenda-view-switch{margin-left:0;width:100%;justify-content:center}.agenda-filters{padding:10px}.agenda-filters select{min-width:125px;max-width:155px}.agenda-grid{grid-template-columns:48px repeat(var(--agenda-days),minmax(148px,1fr))}.agenda-month-day{min-height:80px;padding:3px}.agenda-month-labels,.agenda-month-grid{gap:2px}.agenda-month-item{display:none}.agenda-month-day>strong{font-size:10px}.agenda-unscheduled-day{grid-template-columns:70px minmax(0,1fr);gap:6px}.agenda-editor-time{grid-template-columns:1fr 1fr}.agenda-editor-time .field:last-child{grid-column:1/-1}}
 @media print{.agenda-top-actions,.agenda-filters,.agenda-btn,.agenda-slot,.agenda-aside{display:none!important}.agenda-shell{display:block}.agenda-grid-scroll{max-height:none;overflow:visible}.agenda-grid{min-width:0;grid-template-columns:50px repeat(var(--agenda-days),minmax(0,1fr))}.agenda-event{print-color-adjust:exact;-webkit-print-color-adjust:exact}.agenda-month-item{display:block}}
+
+/* Historische uren krijgen een zichtbare, maar niet als werkelijke tijd opgeslagen plek. */
+.agenda-event-untimed{border-style:dashed;border-left:4px dashed var(--event-color);background:repeating-linear-gradient(135deg,var(--event-bg),var(--event-bg) 12px,#ffffff 12px,#ffffff 15px)}
+.agenda-event-untimed .agenda-event-time{font-style:italic;white-space:normal}
+.agenda-visual-legend{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:11px 15px;border-top:1px solid #e4ebe5;background:#fafbf9;color:#63786d;font-size:11px;line-height:1.4}
+.agenda-visual-legend strong{color:#3e6051;font-weight:700}
+.agenda-legend-dot{display:inline-block;width:17px;height:12px;border:1px dashed #4c917b;background:repeating-linear-gradient(135deg,#e7f4ef,#e7f4ef 5px,#fff 5px,#fff 7px);vertical-align:middle}
+.agenda-selection-preview{position:absolute;left:2px;right:2px;background:rgba(39,117,100,.22);border:2px solid #287564;box-shadow:inset 0 0 0 1px #fff6;border-radius:7px;pointer-events:none;z-index:6;min-height:20px;overflow:hidden}
+.agenda-selection-label{display:block;padding:6px 8px;color:#124d3d;font-size:12px;font-weight:720;line-height:1.25}
+.agenda-day-track:has(.agenda-selection-preview) .agenda-slot:hover::after{opacity:0}
+@media print{.agenda-selection-preview{display:none!important}.agenda-event-untimed{print-color-adjust:exact;-webkit-print-color-adjust:exact}}

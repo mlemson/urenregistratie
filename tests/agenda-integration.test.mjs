@@ -18,7 +18,7 @@ function setup({confirmOverlap=true}={}){
  const context={window,document:{getElementById:get,querySelectorAll(){return []},body:{addEventListener(){}}},console,Date,Intl,URL,TextEncoder,Response,Math,Number,String,Array,Object,JSON,RegExp,
   confirm:()=>confirmOverlap,setTimeout(){return 1},clearTimeout(){},crypto:{randomUUID:()=>`test-${Math.random()}`}};
  vm.runInNewContext(agendaSource,vm.createContext(context),{filename:'agenda.js'});
- const hook=`globalThis.__test={app,defaultDB,saveEntryEdit,parseWorkbook,workbookBytes};
+ const hook=`globalThis.__test={app,defaultDB,saveEntryEdit,parseWorkbook,workbookBytes,agendaNew};openEntryEditor=(id,defaults)=>{globalThis.__test.newEntryDefaults=defaults;};
   render=()=>{};closeModal=()=>{};initWizard=()=>{};syncStatus=()=>{};notify=(m)=>{};`;
  vm.runInNewContext(appSource.replace(end,hook+'\n'+end),context,{filename:'app.js'});
  const h=context.__test;
@@ -56,4 +56,20 @@ test('overlapping timed entries need explicit confirmation',()=>{
  h.app.db.Registraties.push({Id:'other',Datum:'2026-11-11',Projectnummer:'P1',Begintijd:'09:00',Eindtijd:'10:00',Uren:1});
  h.saveEntryEdit('');
  assert.equal(h.app.db.Registraties.length,1);
+});
+test('dragged two-hour agenda selection prefills dates, both times and duration',()=>{
+ const {h}=setup();
+ h.agendaNew({dataset:{date:'2026-11-11',time:'09:00',end:'11:00'}});
+ assert.equal(h.newEntryDefaults.Datum,'2026-11-11');
+ assert.equal(h.newEntryDefaults.Begintijd,'09:00');
+ assert.equal(h.newEntryDefaults.Eindtijd,'11:00');
+ assert.equal(h.newEntryDefaults.Uren,2);
+ assert.equal(h.app.db.Registraties.length,0,'Selecting does not save until user confirms');
+});
+test('single calendar click still proposes one hour',()=>{
+ const {h}=setup();
+ h.agendaNew({dataset:{date:'2026-11-11',time:'14:30'}});
+ assert.equal(h.newEntryDefaults.Begintijd,'14:30');
+ assert.equal(h.newEntryDefaults.Eindtijd,'15:30');
+ assert.equal(h.newEntryDefaults.Uren,1);
 });

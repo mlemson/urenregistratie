@@ -25,8 +25,8 @@ function weekDates(anchor){const start=weekStart(anchor);return Array.from({leng
 function monthDates(anchor){const d=toDate(anchor)||new Date();const first=iso(new Date(d.getFullYear(),d.getMonth(),1,12));const start=weekStart(first);const last=new Date(d.getFullYear(),d.getMonth()+1,0,12);const days=Math.ceil((Math.round((last-toDate(start))/86400000)+1)/7)*7;return Array.from({length:days},(_,i)=>shift(start,i));}
 function dateText(d){const v=toDate(d);return v?DAYS[(v.getDay()+6)%7]+' '+v.getDate()+' '+MONTHS[v.getMonth()].slice(0,3):d;}
 function rowTitle(r,getName){return String(r.Projectnummer||'')+' · '+String(getName(r.Projectnummer)||'')+(r.Activiteit?' · '+r.Activiteit:'');}
-function layout(entries){
- const events=entries.map(r=>({row:r,time:interval(r)})).filter(x=>x.time).sort((a,b)=>a.time.start-b.time.start||a.time.end-b.time.end);
+function layout(entries,timeFor=interval){
+ const events=entries.map(r=>({row:r,time:timeFor(r),approximate:!interval(r)})).filter(x=>x.time).sort((a,b)=>a.time.start-b.time.start||a.time.end-b.time.end);
  const clusters=[];let cluster=[],finish=-1;
  for(const e of events){if(cluster.length&&e.time.start>=finish){clusters.push(cluster);cluster=[];finish=-1;}cluster.push(e);finish=Math.max(finish,e.time.end);}
  if(cluster.length)clusters.push(cluster);
@@ -49,30 +49,50 @@ function rightDetail(ctx,selected){
  return '<aside class="agenda-aside"><div class="agenda-aside-title">Registratie</div>'+(r?'<div class="agenda-detail"><div class="agenda-detail-date">'+esc(dateText(r.Datum))+'</div><div class="agenda-detail-project"><span class="agenda-detail-dot" style="background:'+color+'"></span>'+esc(r.Projectnummer)+' · '+esc(name(r.Projectnummer))+'</div><h3>'+esc(r.Activiteit||'Werkzaamheden')+'</h3><p>'+esc(r.Omschrijving||'Geen aanvullende omschrijving')+'</p><dl><dt>Tijd</dt><dd>'+(time?esc(r.Begintijd)+'–'+esc(r.Eindtijd):'Geen vaste tijden')+'</dd><dt>Uren</dt><dd>'+fmt(r.Uren)+' uur</dd><dt>Kilometers</dt><dd>'+fmt(r.Km)+' km</dd></dl>'+button('Bewerken','agenda-edit','agenda-primary','data-id="'+esc(r.Id)+'"')+'</div>':'<div class="agenda-aside-empty">Klik op een registratie om deze te bewerken. Klik op een leeg tijdvak om uren toe te voegen.</div>')+
  '<div class="agenda-aside-hint"><strong>Registreren zonder tijd</strong><p>Gebruik + Registratie en laat de begintijd en eindtijd leeg. Bestaande uren blijven gewoon meetellen.</p></div></aside>';
 }
-function controls(ctx){return '<div class="agenda-filters"><label>Project <select id="agendaProjectFilter">'+projectOptions(ctx.projects||[],ctx.project)+'</select></label><label>Uren <select id="agendaKindFilter"><option value="">Direct en indirect</option><option value="DIRECT" '+(ctx.kind==='DIRECT'?'selected':'')+'>Direct</option><option value="INDIRECT" '+(ctx.kind==='INDIRECT'?'selected':'')+'>Indirect</option></select></label><span class="agenda-filters-caption">Klik op een tijdvak om uren te registreren</span></div>';}
+function controls(ctx){return '<div class="agenda-filters"><label>Project <select id="agendaProjectFilter">'+projectOptions(ctx.projects||[],ctx.project)+'</select></label><label>Uren <select id="agendaKindFilter"><option value="">Direct en indirect</option><option value="DIRECT" '+(ctx.kind==='DIRECT'?'selected':'')+'>Direct</option><option value="INDIRECT" '+(ctx.kind==='INDIRECT'?'selected':'')+'>Indirect</option></select></label><span class="agenda-filters-caption">Klik voor één uur · sleep over meerdere tijdvakken</span></div>';}
+
+/** Historical records remain without saved times. Their blocks are *visual only*. */
+function allocateUntimed(records, startMinute=8*60){
+ const slots=new Map(),overflow=[];let cursor=startMinute;
+ for(const r of records){
+  if(interval(r))continue;
+  const minutes=Math.round(Number(r.Uren)*60);
+  if(!Number.isFinite(minutes)||minutes<=0||cursor>=1440||minutes>1440-cursor){overflow.push(r);continue;}
+  slots.set(r,{start:cursor,end:cursor+minutes});cursor+=minutes;
+ }
+ return {slots,overflow};
+}
 function timeWeek(ctx,days,rows){
  const now=ctx.today;
  const assigned=days.map(date=>rows.filter(r=>r.Datum===date));
+ const visual=assigned.map(allocateUntimed);
  const intervals=assigned.flat().map(interval).filter(Boolean);
- const minHour=Math.max(0,Math.min(7,...intervals.map(t=>Math.floor(t.start/60))));
- const maxHour=Math.min(24,Math.max(19,...intervals.map(t=>Math.ceil(t.end/60))));
- const totalMin=(maxHour-minHour)*60,pxPerHour=76,height=(maxHour-minHour)*pxPerHour;
- const headers=days.map((date,i)=>'<div class="agenda-day-header '+(date===now?'today ':'')+(selectedInYear(date,ctx.year)?'':'outside-year')+'"><span>'+DAYS[i%7]+'</span><strong>'+Number(date.slice(-2))+'</strong><small>'+fmt(assigned[i].reduce((a,r)=>a+Number(r.Uren||0),0))+' u</small></div>').join('');
+ const approximate=visual.flatMap(x=>Array.from(x.slots.values()));
+ const allTimes=intervals.concat(approximate);
+ const minHour=Math.max(0,Math.min(8,...allTimes.map(t=>Math.floor(t.start/60))));
+ const maxHour=Math.min(24,Math.max(19,...allTimes.map(t=>Math.ceil(t.end/60))));
+ const pxPerHour=76,height=(maxHour-minHour)*pxPerHour;
+ const headers=days.map((date,i)=>'<div class="agenda-day-header '+(date===now?'today ':'')+(selectedInYear(date,ctx.year)?'':'outside-year')+'"><span>'+DAYS[(toDate(date).getDay()+6)%7]+'</span><strong>'+Number(date.slice(-2))+'</strong><small>'+fmt(assigned[i].reduce((a,r)=>a+Number(r.Uren||0),0))+' u</small></div>').join('');
  const timeAxis=Array.from({length:maxHour-minHour+1},(_,i)=>'<span style="top:'+(i*pxPerHour)+'px">'+pad(minHour+i)+':00</span>').join('');
  const schedules=days.map((date,idx)=>{
   const allowed=selectedInYear(date,ctx.year);
-  const timed=layout(assigned[idx]);
+  const approx=visual[idx].slots;
+  const planned=layout(assigned[idx],r=>interval(r)||approx.get(r)||null);
   const slots=allowed?Array.from({length:(maxHour-minHour)*2},(_,i)=>'<button type="button" class="agenda-slot" style="top:'+(i*pxPerHour/2)+'px;height:'+(pxPerHour/2)+'px" data-action="agenda-new" data-date="'+date+'" data-time="'+pad(minHour+Math.floor(i/2))+':'+(i%2?'30':'00')+'" aria-label="Toevoegen '+esc(date)+' '+pad(minHour+Math.floor(i/2))+':'+(i%2?'30':'00')+'"></button>').join(''):'';
-  const cards=timed.map(x=>{
+  const cards=planned.map(x=>{
     const r=x.row,t=x.time;const c=palette(r.Projectnummer),top=(t.start-minHour*60)*pxPerHour/60,cardH=Math.max(18,(t.end-t.start)*pxPerHour/60-3);
-    const width=100/x.columns,left=x.column*width;
-    return '<button type="button" data-action="agenda-edit" data-id="'+esc(r.Id)+'" class="agenda-event" style="--event-color:'+c[0]+';--event-bg:'+c[1]+';top:'+Math.max(0,top)+'px;height:'+cardH+'px;left:calc('+left+'% + 2px);width:calc('+width+'% - 4px)" title="'+esc(rowTitle(r,ctx.getProjectName))+'"><span class="agenda-event-time">'+esc(r.Begintijd)+'–'+esc(r.Eindtijd)+'</span><strong>'+esc(r.Projectnummer)+' · '+esc(r.Activiteit||'Werk')+'</strong><small>'+esc(ctx.getProjectName(r.Projectnummer))+'</small></button>';
+    const width=100/x.columns,left=x.column*width;const eventWidth=x.approximate?'calc('+width+'% - 19px)':'calc('+width+'% - 4px)';
+    const approxClass=x.approximate?' agenda-event-untimed':'';
+    const timeLabel=pad(Math.floor(t.start/60))+':'+pad(t.start%60)+'–'+pad(Math.floor(t.end/60))+':'+pad(t.end%60);
+    const label=x.approximate?'Indicatief '+timeLabel+' · geen geregistreerde tijden':timeLabel;
+    const hint=x.approximate?' Tijd niet geregistreerd; alleen visueel vanaf 08:00 ingedeeld.':'';
+    return '<button type="button" data-action="agenda-edit" data-id="'+esc(r.Id)+'" class="agenda-event'+approxClass+'" style="--event-color:'+c[0]+';--event-bg:'+c[1]+';top:'+Math.max(0,top)+'px;height:'+cardH+'px;left:calc('+left+'% + 2px);width:'+eventWidth+'" title="'+esc(rowTitle(r,ctx.getProjectName)+hint)+'"><span class="agenda-event-time">'+esc(label)+'</span><strong>'+esc(r.Projectnummer)+' · '+esc(r.Activiteit||'Werk')+'</strong><small>'+fmt(r.Uren)+' uur · '+esc(ctx.getProjectName(r.Projectnummer))+'</small></button>';
   }).join('');
-  return '<div class="agenda-day-track '+(date===now?'today ':'')+(allowed?'':'outside-year')+'" style="height:'+height+'px">'+slots+cards+'</div>';
+  return '<div class="agenda-day-track '+(date===now?'today ':'')+(allowed?'':'outside-year')+'" data-agenda-date="'+date+'" data-start-minute="'+(minHour*60)+'" data-hour-height="'+pxPerHour+'" style="height:'+height+'px">'+slots+cards+'</div>';
  }).join('');
- const untimed=assigned.map((records,i)=>({date:days[i],items:records.filter(r=>!interval(r))})).filter(x=>x.items.length);
- const untimedMarkup=untimed.length?untimed.map(x=>'<div class="agenda-unscheduled-day"><div><strong>'+esc(dateText(x.date))+'</strong></div><div class="agenda-unscheduled-cards">'+x.items.map(r=>{const c=palette(r.Projectnummer);return '<button type="button" data-action="agenda-edit" data-id="'+esc(r.Id)+'" class="agenda-unscheduled-item" style="--event-color:'+c[0]+';--event-bg:'+c[1]+'"><strong>'+esc(r.Projectnummer)+'</strong><span>'+esc(r.Activiteit||'Werk')+'</span><em>'+fmt(r.Uren)+' u</em></button>';}).join('')+'</div></div>').join(''):'<p class="agenda-blank-note">Geen registraties zonder tijd in deze periode.</p>';
- return '<div class="agenda-main"><div class="agenda-grid-scroll"><div class="agenda-grid" style="--agenda-days:'+days.length+'"><div class="agenda-top-corner">Tijd</div>'+headers+'<div class="agenda-times" style="height:'+height+'px">'+timeAxis+'</div>'+schedules+'</div></div><div class="agenda-unscheduled"><div class="agenda-unscheduled-heading"><strong>Zonder tijd</strong><span>Historische registraties en handmatige uren</span></div>'+untimedMarkup+'</div></div>';
+ const excess=visual.map((result,i)=>({date:days[i],items:result.overflow})).filter(x=>x.items.length);
+ const excessMarkup=excess.length?'<div class="agenda-unscheduled"><div class="agenda-unscheduled-heading"><strong>Niet ingetekend</strong><span>Extra registraties die niet meer tussen 08:00 en 24:00 passen</span></div>'+excess.map(x=>'<div class="agenda-unscheduled-day"><div><strong>'+esc(dateText(x.date))+'</strong></div><div class="agenda-unscheduled-cards">'+x.items.map(r=>{const c=palette(r.Projectnummer);return '<button type="button" data-action="agenda-edit" data-id="'+esc(r.Id)+'" class="agenda-unscheduled-item" style="--event-color:'+c[0]+';--event-bg:'+c[1]+'"><strong>'+esc(r.Projectnummer)+'</strong><span>'+esc(r.Activiteit||'Werk')+'</span><em>'+fmt(r.Uren)+' u</em></button>';}).join('')+'</div></div>').join('')+'</div>':'';
+ return '<div class="agenda-main"><div class="agenda-grid-scroll"><div class="agenda-grid" style="--agenda-days:'+days.length+'"><div class="agenda-top-corner">Tijd</div>'+headers+'<div class="agenda-times" style="height:'+height+'px">'+timeAxis+'</div>'+schedules+'</div></div><div class="agenda-visual-legend"><span class="agenda-legend-dot"></span><strong>Zonder tijd</strong><span>Gestreepte blokken worden alleen ter indicatie vanaf 08:00 weergegeven; oorspronkelijke tijden blijven leeg.</span></div>'+excessMarkup+'</div>';
 }
 function monthView(ctx,rows){const grid=monthDates(ctx.anchor),month=(toDate(ctx.anchor)||new Date()).getMonth();const dayNames=DAYS.map(x=>'<span>'+x+'</span>').join('');
  const days=grid.map(date=>{const values=rows.filter(r=>r.Datum===date),active=toDate(date)?.getMonth()===month,valid=selectedInYear(date,ctx.year);
@@ -89,5 +109,5 @@ function render(ctx){
  const selected=allRows.find(r=>r.Id===ctx.selectedId)||null;
  return agendaHeader(ctx,filtered,title)+'<div class="agenda-shell"><section class="agenda-content">'+controls(ctx)+(ctx.mode==='maand'?monthView(ctx,filtered):timeWeek(ctx,days,filtered))+'</section>'+rightDetail(ctx,selected)+'</div>';
 }
-root.LAAgenda={render,shift,iso,weekStart,weekDates,monthDates,minute,interval,duration,layout,isoWeek};
+root.LAAgenda={render,shift,iso,weekStart,weekDates,monthDates,minute,interval,duration,layout,allocateUntimed,isoWeek};
 })(window);
