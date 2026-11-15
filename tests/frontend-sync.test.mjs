@@ -51,6 +51,7 @@ function setup({onlineEtag='"v1"', localEtag='"v1"', pending=true, cleanRemote=f
  const h=context.__laTest;
  h.setMocks();
  h.app.year=2026;
+ h.app.cloud.password='strong-password';
  h.app.db=h.defaultDB(2026);
  local.setItem('la-db-2026',JSON.stringify(h.app.db));
  if(cleanRemote)h.app.db.Instellingen[0].Waarde='95';
