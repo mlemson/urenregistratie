@@ -12,7 +12,7 @@ const env={
 };
 const xlsx=new Uint8Array([0x50,0x4b,0x03,0x04,1,2,3,4,5,6]);
 
-function mockWebdav({folderInitially=false}={}) {
+function mockWebdav({folderInitially=false,bareEtag=false}={}) {
  let folder=folderInitially;const files=new Map();let counter=1;
  const calls=[];
  const fetchMock=async(input,options={})=>{
@@ -32,13 +32,13 @@ function mockWebdav({folderInitially=false}={}) {
      if(!folder)return new Response('no parent',{status:409});
      const headers=options.headers||{};
      if(headers['If-None-Match']==='*'&&f)return new Response('exists',{status:412});
-     if(headers['If-Match']&&headers['If-Match']!==f?.etag)return new Response('stale',{status:412});
-     const bytes=new Uint8Array(options.body),etag=`"v${counter++}"`;
+     if(headers['If-Match']&&headers['If-Match']!==(bareEtag?`"${f?.etag}"`:f?.etag))return new Response('stale',{status:412});
+     const bytes=new Uint8Array(options.body),tag=`v${counter++}`,etag=bareEtag?tag:`"${tag}"`;
      files.set(url,{bytes,etag});return new Response(f?null:'',{status:f?204:201});
    }
    throw Error('Unsupported '+method);
  };
- return {calls,files,fetchMock,makeFile:(year)=>{folder=true;files.set(`${base}/LA-Uren-Km-${year}.xlsx`,{bytes:xlsx,etag:`"v${counter++}"`});}};
+ return {calls,files,fetchMock,makeFile:(year)=>{folder=true;files.set(`${base}/LA-Uren-Km-${year}.xlsx`,{bytes:xlsx,etag:bareEtag?`v${counter++}`:`"v${counter++}"`});}};
 }
 async function run(method,path,{authorization='Bearer een-lange-testcode',originValue=origin,headers={},body}={}) {
  const h=new Headers(headers);
@@ -124,4 +124,28 @@ test('route weigert onjuiste postcodes in plaats van een andere locatie te kieze
  };
  const r=await run('GET','/api/route?from=7462%20MR&to=7511%20AB');
  assert.equal(r.status,422);
+});
+
+test('unquoted STACK ETags can save with quoted If-Match forwarded to WebDAV',async()=>{
+ const mock=mockWebdav({folderInitially:true,bareEtag:true});globalThis.fetch=mock.fetchMock;
+ mock.makeFile(2026);
+ const loaded=await run('GET','/api/year/2026');
+ assert.equal(loaded.status,200);
+ assert.equal(loaded.headers.get('ETag'),'v1');
+ let saved=await run('PUT','/api/year/2026',{headers:{'If-Match':loaded.headers.get('ETag')},body:xlsx});
+ assert.equal(saved.status,200,await saved.text());
+ assert.equal(saved.headers.get('ETag'),'v2');
+ const upstream=mock.calls.filter(c=>c.method==='PUT').at(-1);
+ assert.equal(upstream.headers['If-Match'],'"v1"');
+ assert.equal((await run('PUT','/api/year/2026',{headers:{'If-Match':'v1'},body:xlsx})).status,412);
+});
+
+test('malformed, wildcard, and weak If-Match values do not write',async()=>{
+ const mock=mockWebdav({folderInitially:true,bareEtag:true});globalThis.fetch=mock.fetchMock;
+ mock.makeFile(2026);
+ for(const tag of ['*','W/"v1"','"v1", "v2"','v1,v2','"v1"junk']){
+  const r=await run('PUT','/api/year/2026',{headers:{'If-Match':tag},body:xlsx});
+  assert.equal(r.status,400,tag);
+ }
+ assert.equal(mock.calls.filter(c=>c.method==='PUT').length,0);
 });

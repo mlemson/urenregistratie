@@ -48,6 +48,21 @@ function folderURL(env) {
   }
   return url.origin+folderPath;
 }
+
+/**
+ * STACK/WebDAV may return a bare ETag although If-Match requires a quoted
+ * entity-tag under HTTP. Keep the unmodified value for comparisons with HEAD,
+ * but forward a standards-compliant tag to the WebDAV PUT request.
+ * Never accept wildcard, weak, multi-tag or control-character conditions.
+ */
+function uploadConditionEtag(value) {
+  if (typeof value !== 'string' || value.length < 1 || value.length > 512 ||
+      /[\x00-\x20\x7f,]/.test(value) || value === '*' || value.startsWith('W/')) return null;
+  if (/^"[\x21\x23-\x7e\x80-\xff]*"$/.test(value)) return value;
+  if (/^[A-Za-z0-9._:-]+$/.test(value)) return '"'+value+'"';
+  return null;
+}
+
 function fileURL(env, year) { return `${folderURL(env)}/LA-Uren-Km-${year}.xlsx`; }
 function auth(env) { return 'Basic '+btoa(`${env.STACK_USER}:${env.STACK_TOKEN}`); }
 async function dav(env,url,method,opts={}) {
@@ -136,7 +151,8 @@ export default {
       const ifMatch=request.headers.get('If-Match'), ifNone=request.headers.get('If-None-Match');
       if(!ifMatch&&ifNone!=='*')return respond(428,'Bestandsversie verplicht',ch);
       if(ifMatch&&ifNone)return respond(400,'Kies één versievoorwaarde',ch);
-      if(ifMatch&&!/^"[^"\r\n]+"$/.test(ifMatch))return respond(400,'Ongeldig ETag',ch);
+      const validIfMatch=ifMatch?uploadConditionEtag(ifMatch):null;
+      if(ifMatch&&!validIfMatch)return respond(400,'Ongeldig ETag',ch);
       const len=Number(request.headers.get('Content-Length'))||0;
       if(len>MAX_SIZE)return respond(413,'Bestand te groot',ch);
       const body=await request.arrayBuffer();
@@ -154,7 +170,7 @@ export default {
         const current=before.headers.get('ETag');
         if(!current||current!==ifMatch)return respond(412,'Er staat een nieuwere versie op STACK',ch);
       }
-      const conditions=ifMatch?{'If-Match':ifMatch}:{'If-None-Match':'*'};
+      const conditions=ifMatch?{'If-Match':validIfMatch}:{'If-None-Match':'*'};
       const saved=await dav(env,url,'PUT',{body,headers:{'Content-Type':XLSX,...conditions}});
       if(saved.status===412||saved.status===409)return respond(412,'Bewerkingconflict: bestand is gewijzigd',ch);
       if(!saved.ok)return respond(502,`STACK kon niet opslaan (${saved.status})`,ch);
