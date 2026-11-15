@@ -57,3 +57,10 @@ test('month view and day view provide navigation',()=>{
   assert.match(day,/data-action="agenda-new"/);
   assert.ok(month.length>2000);
 });
+
+test('workweek follows Monday through Friday without weekend columns',()=>{
+ const html=cal.render({...context,mode:'werkweek'});
+ assert.match(html,/Werkweek 46/);
+ assert.equal((html.match(/class="agenda-day-header /g)||[]).length,5);
+ assert.match(html,/--agenda-days:5/);
+});

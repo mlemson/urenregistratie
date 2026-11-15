@@ -40,7 +40,7 @@ function agendaHeader(ctx,rangeRows,title){
  const untimed=rangeRows.filter(r=>!interval(r));
  const hasTime=rangeRows.length-untimed.length;
  return '<div class="agenda-top"><div><h1>Agenda</h1><p>'+esc(title)+' · '+ctx.year+'</p></div><div class="agenda-top-actions">'+button('Vandaag','agenda-today')+button('‹','agenda-prev','agenda-arrow','aria-label="Vorige periode"')+button('›','agenda-next','agenda-arrow','aria-label="Volgende periode"')+button('+ Registratie','agenda-new','agenda-primary')+'</div></div>'+
- '<div class="agenda-summary"><div><span>Geregistreerd</span><strong>'+fmt(hours)+' <small>uur</small></strong></div><div><span>Met tijd</span><strong>'+hasTime+'</strong></div><div><span>Zonder tijd</span><strong>'+untimed.length+'</strong></div><div class="agenda-view-switch">'+['dag','week','maand'].map(m=>button(m.charAt(0).toUpperCase()+m.slice(1),'agenda-mode',ctx.mode===m?'active':'','data-mode="'+m+'"')).join('')+'</div></div>';
+ '<div class="agenda-summary"><div><span>Geregistreerd</span><strong>'+fmt(hours)+' <small>uur</small></strong></div><div><span>Met tijd</span><strong>'+hasTime+'</strong></div><div><span>Zonder tijd</span><strong>'+untimed.length+'</strong></div><div class="agenda-view-switch">'+['dag','werkweek','week','maand'].map(m=>button(m.charAt(0).toUpperCase()+m.slice(1),'agenda-mode',ctx.mode===m?'active':'','data-mode="'+m+'"')).join('')+'</div></div>';
 }
 function fmt(v){return new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2}).format(Math.round((Number(v)||0)*100)/100);}
 function rightDetail(ctx,selected){
@@ -80,12 +80,12 @@ function monthView(ctx,rows){const grid=monthDates(ctx.anchor),month=(toDate(ctx
  return '<div class="agenda-month-wrap"><div class="agenda-month-labels">'+dayNames+'</div><div class="agenda-month-grid">'+days+'</div></div>';
 }
 function render(ctx){
- const week=weekDates(ctx.anchor),days=ctx.mode==='dag'?[ctx.anchor]:week;
+ const week=weekDates(ctx.anchor),days=ctx.mode==='dag'?[ctx.anchor]:(ctx.mode==='werkweek'?week.slice(0,5):week);
  const range=ctx.mode==='maand'?monthDates(ctx.anchor):days;
  const allRows=(ctx.entries||[]).filter(r=>isRelevant(r,ctx));
  const filtered=allRows.filter(r=>range.includes(r.Datum)&&(ctx.mode!=='maand'||(toDate(r.Datum)&&toDate(r.Datum).getMonth()===(toDate(ctx.anchor)||new Date()).getMonth())));
  const anchor=toDate(ctx.anchor)||new Date();
- const title=ctx.mode==='maand'?MONTHS[anchor.getMonth()]+' '+anchor.getFullYear():ctx.mode==='dag'?dateText(ctx.anchor)+' '+anchor.getFullYear():'Week '+isoWeek(week[0])+' · '+Number(week[0].slice(-2))+' '+MONTHS[toDate(week[0]).getMonth()].slice(0,3)+' – '+Number(week[6].slice(-2))+' '+MONTHS[toDate(week[6]).getMonth()].slice(0,3);
+ const title=ctx.mode==='maand'?MONTHS[anchor.getMonth()]+' '+anchor.getFullYear():ctx.mode==='dag'?dateText(ctx.anchor)+' '+anchor.getFullYear():(ctx.mode==='werkweek'?'Werkweek ':'Week ')+isoWeek(week[0])+' · '+Number(week[0].slice(-2))+' '+MONTHS[toDate(week[0]).getMonth()].slice(0,3)+' – '+Number(days[days.length-1].slice(-2))+' '+MONTHS[toDate(days[days.length-1]).getMonth()].slice(0,3);
  const selected=allRows.find(r=>r.Id===ctx.selectedId)||null;
  return agendaHeader(ctx,filtered,title)+'<div class="agenda-shell"><section class="agenda-content">'+controls(ctx)+(ctx.mode==='maand'?monthView(ctx,filtered):timeWeek(ctx,days,filtered))+'</section>'+rightDetail(ctx,selected)+'</div>';
 }

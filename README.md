@@ -4,7 +4,7 @@ Webapp voor Lemson Architecten. Geschikt voor actuele Windows- en macOS-browsers
 
 ## Agenda
 
-De webapp opent standaard in **Agenda** met week-, dag- en maandweergave. In de week staan uren met een begintijd en eindtijd als kalenderblokken met een vaste projectkleur. Overlappende tijdvakken komen naast elkaar te staan. Klik op een blok om de registratie te wijzigen of klik op een leeg halfuur om direct een nieuwe registratie met voorgestelde tijden aan te maken. Het rechterpaneel toont de geselecteerde registratie. In de maandweergave opent een klik op een datum de dagagenda.
+De webapp opent standaard in **Agenda** met werkweek-, week-, dag- en maandweergave. In de week staan uren met een begintijd en eindtijd als kalenderblokken met een vaste projectkleur. Overlappende tijdvakken komen naast elkaar te staan. Klik op een blok om de registratie te wijzigen of klik op een leeg halfuur om direct een nieuwe registratie met voorgestelde tijden aan te maken. Het rechterpaneel toont de geselecteerde registratie. In de maandweergave opent een klik op een datum de dagagenda.
 
 Tijden zijn **optioneel**. Beide tijden invullen berekent de duur automatisch; beide leeg laten maakt het mogelijk om alleen het aantal gewerkte uren vast te leggen. Oude registraties krijgen geen kunstmatige tijd en staan bij de desbetreffende week onder **Zonder tijd**. Bestaande uren blijven meetellen in alle totalen en declaraties. Bij een overlappend tijdvak verschijnt een bevestiging. Bewerkingen behouden kilometers, het declaratieverleden en de mutatielog. De Excel-gegevens bevatten twee extra kolommen, `Begintijd` en `Eindtijd`; oude moederbestanden blijven zonder conversiestap leesbaar. De nieuwe velden worden met het Excel-bestand op STACK opgeslagen, niet op GitHub.
 
