@@ -6,6 +6,10 @@ const DEFAULT_ACTIVITIES=['1 ontwerp','2 def ontwerp','3 bouwaanvraag','4 esth b
 const DB_VERSION=2;
 function fallbackStore(name){try{const st=window[name];if(st){st.getItem('la-storage-check');return st;}}catch(e){}const cache={};return {getItem:k=>cache[k]??null,setItem:(k,v)=>{cache[k]=String(v)},removeItem:k=>{delete cache[k]}};}
 const safeLocal=fallbackStore('localStorage');
+const safeSession=fallbackStore('sessionStorage');
+const SESSION_PASSWORD_KEY='la-stack-session-password';
+function rememberCloudPassword(password){safeSession.setItem(SESSION_PASSWORD_KEY,password);}
+function forgetCloudPassword(){safeSession.removeItem(SESSION_PASSWORD_KEY);}
 const FIELDS={
  Projecten:['Projectnummer','Omschrijving','Actueel','Uurtarief','Prijsafspraak','Contractbedrag','Opmerking'],
  Activiteiten:['Naam','SoortUren'],
@@ -32,7 +36,7 @@ function defaultDB(year){return {schema:DB_VERSION,year,Projecten:[],Activiteite
 function cleanDB(data,year){let b=defaultDB(year);if(!data||typeof data!=='object')return b;for(const k of Object.keys(FIELDS)){if(Array.isArray(data[k]))b[k]=data[k].map(r=>({...r}));}b.year=year;b.schema=DB_VERSION;return b;}
 function stored(y){try{let s=safeLocal.getItem(`la-db-${y}`);return s?cleanDB(JSON.parse(s),y):null;}catch(e){return null;}}
 function initDB(y){return stored(y)||((y===2026&&window.LA_SEED)?cleanDB(window.LA_SEED,2026):defaultDB(y));}
-const app={year:2026,db:null,page:'registreren',month:11,projectFilter:'actueel',projectQuery:'',billingProject:'',billMethod:'',billHours:{},billOverride:'',billPercentage:0,billBase:0,showLegacy:false,showAllEntries:false,wizard:null,projectWizard:null,archiveYear:2026,monthProject:'',cloud:{url:safeLocal.getItem('la-stack-url')||'',password:'',etag:'',connected:false,dirty:false,busy:false,conflict:false},notifying:false};
+const app={year:2026,db:null,page:'registreren',month:11,projectFilter:'actueel',projectQuery:'',billingProject:'',billMethod:'',billHours:{},billOverride:'',billPercentage:0,billBase:0,showLegacy:false,showAllEntries:false,wizard:null,projectWizard:null,archiveYear:2026,monthProject:'',cloud:{url:safeLocal.getItem('la-stack-url')||'',password:safeSession.getItem(SESSION_PASSWORD_KEY)||'',etag:'',connected:false,dirty:false,busy:false,conflict:false},notifying:false};
 const pendingKey=y=>`la-pending-${y}`;
 const syncedKey=y=>`la-last-synced-${y}`;
 const hasPending=y=>safeLocal.getItem(pendingKey(y))==='1';
@@ -263,7 +267,7 @@ function saveReview(id){let r=app.db.Registraties.find(x=>x.Id===id);if(!r)retur
 function createBill(){let p=project(app.billingProject);if(!p)return;for(let r of availableEntries(p.Projectnummer)){let v=num(app.billHours[r.Id]??availableHours(r));if(v<0||v>availableHours(r)+.0001){notify('Uren overschrijden het openstaande saldo.',true);return;}}let {hrs,amount,rate}=computedBill(),mode=app.billMethod;if((mode==='Uren'&&hrs<=0)||(mode==='Percentage'&&num(app.billPercentage)<=0)||(mode!=='Uren'&&amount<=0)){notify('Selecteer uren of vul een geldig bedrag in.',true);return;}if(amount<=0&&mode==='Uren'){notify('Stel eerst een uurtarief in bij het project.',true);return;}let d={Id:uid(),Projectnummer:p.Projectnummer,Datum:today(),Kenmerk:$('billReference')?.value.trim()||'',Status:'concept',Methode:mode,Uurtarief:rate,Percentage:mode==='Percentage'?num(app.billPercentage):'',Grondslag:mode==='Percentage'||mode==='Vast bedrag'?num(app.billBase):'',BedragExBtw:amount,BtwPercentage:'',Opmerking:$('billNote')?.value||'',Aangemaakt:new Date().toISOString()};for(let r of availableEntries(p.Projectnummer)){let v=num(app.billHours[r.Id]??availableHours(r));if(v>0)app.db.Declaratieregels.push({Id:uid(),DeclaratieId:d.Id,RegistratieId:r.Id,Uren:v,Omschrijving:r.Activiteit});}app.db.Declaraties.push(d);audit('Toegevoegd','Declaratie',d.Id,`${p.Projectnummer}, ${hrs} uur, ${amount} euro`);persist();initializeBilling(p.Projectnummer);render();notify('Declaratievoorstel vastgelegd. Uren zijn gereserveerd.',false,true);}
 function createNextYear(){let target=app.year+1;let existing=stored(target);if(existing){notify(`Bestand voor ${target} bestaat al.`,true);return;}modal(`Nieuw jaar ${target}`,`<p>Projecten en activiteiten overnemen uit ${app.year}. Registraties, declaraties en uren beginnen op nul.</p><p class="subnote">Het bestaande jaar blijft ongewijzigd.</p>`,`${b('Annuleren','close-modal')}${b('Jaar aanmaken','confirm-new-year','primary')}`);}
 function confirmNextYear(){let next=app.year+1,n=defaultDB(next);n.Projecten=app.db.Projecten.map(p=>({...p}));n.Activiteiten=app.db.Activiteiten.map(a=>({...a}));for(let key of ['Bedrijfsnaam','Bedrijfslogo']){const found=app.db.Instellingen.find(x=>x.Sleutel===key);if(found)n.Instellingen.push({...found});}let oldR=setting('StandaardUurtarief');n.Instellingen.find(x=>x.Sleutel==='StandaardUurtarief').Waarde=oldR;audit('Jaar aangemaakt','Jaar',String(next),'Projectlijst meegenomen');safeLocal.setItem(`la-db-${next}`,JSON.stringify(n));safeLocal.setItem(pendingKey(next),'1');closeModal();changeYear(next);notify(`${next} aangemaakt. Download het nieuwe Excel-bestand of koppel STACK.`,false,true);}
-function changeYear(y){pendingLogo=null;if(!Number.isInteger(y)||y<2020||y>2100)return;clearTimeout(saveTimer);if(app.cloud.connected&&(app.cloud.dirty||app.cloud.busy)){notify('Het vorige jaar is nog niet gesynchroniseerd. Download het bestand eerst.',true);$('year').value=String(app.year);return;}app.year=y;app.db=initDB(y);localRevision=0;app.month=y===new Date().getFullYear()?new Date().getMonth()+1:1;app.cloud.etag='';app.cloud.connected=false;app.cloud.dirty=hasPending(y);app.cloud.conflict=false;app.showLegacy=false;app.billingProject='';initWizard();eventRender();if(app.cloud.url&&app.cloud.password)notify('Selecteer in Instellingen: Verbinden met STACK, om dit jaar online te openen.');}
+function changeYear(y){pendingLogo=null;if(!Number.isInteger(y)||y<2020||y>2100)return;clearTimeout(saveTimer);if(app.cloud.connected&&(app.cloud.dirty||app.cloud.busy)){notify('Het vorige jaar is nog niet gesynchroniseerd. Download het bestand eerst.',true);$('year').value=String(app.year);return;}app.year=y;app.db=initDB(y);localRevision=0;app.month=y===new Date().getFullYear()?new Date().getMonth()+1:1;app.cloud.etag='';app.cloud.connected=false;app.cloud.dirty=hasPending(y);app.cloud.conflict=false;app.showLegacy=false;app.billingProject='';initWizard();eventRender();if(app.cloud.url&&app.cloud.password)void connectCloud({automatic:true});}
 function workbookBytes(){if(!window.XLSX)throw Error('Excelbibliotheek niet geladen. Controleer de internetverbinding.');let wb=XLSX.utils.book_new();for(let [name,headers] of Object.entries(FIELDS)){let rows=app.db[name].map(r=>Object.fromEntries(headers.map(k=>[k,r[k]??''])));let ws=XLSX.utils.json_to_sheet(rows,{header:headers,skipHeader:false});ws['!cols']=headers.map(h=>({wch:Math.min(35,Math.max(12,h.length+3))}));XLSX.utils.book_append_sheet(wb,ws,name);}const hd=['Projectnummer','Omschrijving','Actueel','Jaaruren',...MONTHS.map(m=>m.slice(0,3)),'Uurtarief','Prijsafspraak'];const report=[hd];for(const p of app.db.Projecten){const monthly=MONTHS.map((_,i)=>projectHours(p.Projectnummer,i+1));report.push([p.Projectnummer,p.Omschrijving,p.Actueel,round(monthly.reduce((a,b)=>a+b,0)),...monthly,p.Uurtarief||'',p.Prijsafspraak||'']);}const sheet=XLSX.utils.aoa_to_sheet(report);sheet['!cols']=hd.map((h,i)=>({wch:i===1?45:Math.max(12,h.length+2)}));XLSX.utils.book_append_sheet(wb,sheet,'Projectoverzicht');return XLSX.write(wb,{bookType:'xlsx',type:'array'});}
 function parseWorkbook(buf){if(!window.XLSX)throw Error('Excelbibliotheek niet geladen.');const wb=XLSX.read(buf,{type:'array',cellDates:false});if(!wb.SheetNames.includes('Registraties')||!wb.SheetNames.includes('Projecten'))throw Error('Dit is geen LA-urenbestand. Gebruik de bijgeleverde 2026-database.');let data=defaultDB(app.year);for(const name of Object.keys(FIELDS)){let sheet=wb.Sheets[name];data[name]=sheet?XLSX.utils.sheet_to_json(sheet,{defval:'',raw:true}):[];}return cleanDB(data,app.year);}
 function downloadBytes(bytes,name,mime){let blob=new Blob([bytes],{type:mime});let u=URL.createObjectURL(blob);let a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000);}
@@ -272,17 +276,24 @@ function downloadCSV(rows,headers,name){let qs=v=>`"${String(v??'').replace(/"/g
 function importWorkbook(file){if(!file)return;const found=file.name.match(/20\d{2}/);if(found&&Number(found[0])!==app.year){notify(`Bestand is voor ${found[0]}. Selecteer eerst dat jaar.`,true);return;}file.arrayBuffer().then(buf=>{let db=parseWorkbook(buf);if(!confirm(`Huidig jaar ${app.year} vervangen door ${file.name}? Niet geëxporteerde wijzigingen gaan verloren.`))return;app.db=db;app.cloud.dirty=true;app.cloud.connected=false;app.cloud.etag='';app.month=app.year===new Date().getFullYear()?new Date().getMonth()+1:1;initWizard();persist();app.page='registreren';eventRender();notify('Bestand geïmporteerd. Maak eerst een export of verbind opnieuw met STACK.',false,true);}).catch(e=>notify(e.message,true));}
 function makeBaseUrl(s){let u=new URL(s);if(u.protocol!=='https:')throw Error('Gebruik een HTTPS-adres.');return u.origin+u.pathname.replace(/\/$/,'');}
 function cloudHeaders(extra={}){return {Authorization:`Bearer ${app.cloud.password}`,...extra};}
-async function connectCloud(){
+let cloudConnecting=false;
+async function connectCloud({automatic=false}={}){
+ if(cloudConnecting)return;
+ cloudConnecting=true;
+ const revisionBefore=localRevision;
  try {
-  const url=makeBaseUrl($('cloudUrl').value.trim());
-  const password=$('cloudPassword').value||app.cloud.password;
-  if(!password)throw Error('Toegangscode invullen.');
+  const fieldUrl=automatic?app.cloud.url:($('cloudUrl')?.value.trim()||app.cloud.url);
+  const url=makeBaseUrl(fieldUrl);
+  const password=automatic?app.cloud.password:($('cloudPassword')?.value||app.cloud.password);
+  if(!password){if(!automatic)throw Error('Toegangscode invullen.');return;}
   if(url.includes('stack.storage'))throw Error('Vul hier het Cloudflare Worker-adres in, niet het STACK-adres.');
   const year=app.year;
   const r=await fetch(`${url}/api/year/${year}`,{headers:{Authorization:`Bearer ${password}`},cache:'no-store'});
+  if(year!==app.year||revisionBefore!==localRevision){if(!automatic)notify('Er zijn tijdens verbinden wijzigingen gemaakt. Verbind opnieuw om ze veilig op te slaan.',true);return;}
   if(r.status===404){
+   if(automatic){notify(`Geen online jaarbestand voor ${year}. Open Instellingen om dit jaarbestand op STACK aan te maken.`);return;}
    if(!confirm(`Er staat nog geen ${year}-bestand op STACK. De gegevens van dit apparaat als nieuw moederbestand opslaan?`))return;
-   app.cloud.url=url;app.cloud.password=password;safeLocal.setItem('la-stack-url',url);
+   app.cloud.url=url;app.cloud.password=password;safeLocal.setItem('la-stack-url',url);rememberCloudPassword(password);
    app.cloud.connected=true;app.cloud.etag='*';app.cloud.dirty=true;app.cloud.conflict=false;
    await saveCloud();eventRender();return;
   }
@@ -290,20 +301,45 @@ async function connectCloud(){
   const etag=r.headers.get('etag')||'';
   if(!etag)throw Error('Bestandsversie ontbreekt. De koppeling kan niet veilig werken.');
   const remote=parseWorkbook(await r.arrayBuffer());
-  const locallyStored=!!safeLocal.getItem(`la-db-${year}`);
-  const needsBackup=locallyStored&&(hasPending(year)||!safeLocal.getItem(syncedKey(year)));
-  if(needsBackup){
-   if(!confirm(`Op dit apparaat staan mogelijk niet-gesynchroniseerde gegevens voor ${year}. Eerst een lokale Excel-kopie downloaden?`))return;
+  if(year!==app.year||revisionBefore!==localRevision){if(!automatic)notify('Er zijn tijdens verbinden wijzigingen gemaakt. Verbind opnieuw om ze veilig op te slaan.',true);return;}
+  const localExists=!!safeLocal.getItem(`la-db-${year}`);
+  const pending=hasPending(year);
+  const lastSynced=safeLocal.getItem(syncedKey(year));
+  if(pending&&lastSynced===etag){
+   // De lokale kopie is gebaseerd op exact dezelfde online bestandsversie.
+   // Daardoor kunnen wijzigingen veilig met If-Match worden weggeschreven.
+   app.cloud.url=url;app.cloud.password=password;safeLocal.setItem('la-stack-url',url);rememberCloudPassword(password);
+   app.cloud.connected=true;app.cloud.etag=etag;app.cloud.dirty=true;app.cloud.conflict=false;
+   eventRender();queueSave();notify('Lokale wijzigingen worden op STACK opgeslagen.',false,true);
+   return;
+  }
+  if(pending){
+   // Zonder overeenkomende ETag nooit oude of onbekende online wijzigingen overschrijven.
+   if(automatic){
+    notify('Er staan lokale wijzigingen en een andere versie op STACK. Je gegevens blijven lokaal bewaard. Open Instellingen om dit te controleren.',true);
+   }else{
+    if(confirm('Dit apparaat heeft lokale wijzigingen, maar het online bestand heeft een andere of onbekende versie. Een lokale Excel-back-up downloaden? Het online bestand blijft ongewijzigd.')){
+     downloadBytes(workbookBytes(),`LA-Uren-Km-${year}-LOKALE-BACKUP.xlsx`,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+    notify('Er is geen veilige automatische samenvoeging mogelijk. Je lokale wijzigingen zijn bewaard; het bestand op STACK is niet overschreven.',true);
+   }
+   return;
+  }
+  if(localExists&&!lastSynced){
+   if(automatic){notify('Er staat een lokale versie zonder synchronisatiegeschiedenis. Verbind handmatig om een back-up te maken.');return;}
+   if(!confirm(`Dit apparaat heeft een eigen bestand voor ${year}. Eerst een Excel-back-up downloaden voordat het bestand van STACK wordt geopend?`))return;
    downloadBytes(workbookBytes(),`LA-Uren-Km-${year}-LOKALE-BACKUP.xlsx`,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-   if(!confirm('Controleer of de Excel-back-up is gedownload. Daarna wordt de lokale versie vervangen door die van STACK. Doorgaan?'))return;
+   if(!confirm('Controleer de gedownloade back-up. Lokale gegevens vervangen door de versie op STACK?'))return;
   }
   app.db=remote;localRevision=0;
-  app.cloud.url=url;app.cloud.password=password;safeLocal.setItem('la-stack-url',url);
+  app.cloud.url=url;app.cloud.password=password;safeLocal.setItem('la-stack-url',url);rememberCloudPassword(password);
   app.cloud.connected=true;app.cloud.etag=etag;app.cloud.dirty=false;app.cloud.conflict=false;
   safeLocal.setItem(`la-db-${year}`,JSON.stringify(remote));
   safeLocal.removeItem(pendingKey(year));safeLocal.setItem(syncedKey(year),etag);
-  initWizard();app.page='registreren';eventRender();notify('Bestand opgehaald van STACK.',false,true);
- }catch(e){notify(e.message,true);}
+  initWizard();if(!automatic)app.page='registreren';eventRender();
+  if(!automatic)notify('Bestand opgehaald van STACK.',false,true);
+ }catch(e){app.cloud.connected=false;app.cloud.dirty=hasPending(app.year);notify(e.message,true);}
+ finally {cloudConnecting=false;syncStatus();}
 }
 let cloudSaving=false;
 async function saveCloud(){
@@ -336,9 +372,9 @@ case 'month-overview':app.month=Number(btn.dataset.month);app.monthProject='';ap
 case 'export-register-csv':downloadCSV(app.db.Registraties,FIELDS.Registraties,`LA-${app.year}-registraties.csv`);break;case 'export-audit':downloadCSV(app.db.Mutaties,FIELDS.Mutaties,`LA-${app.year}-mutaties.csv`);break;
 case 'save-settings':setSetting('StandaardUurtarief',round(num($('defaultRate').value)));setSetting('KilometerTarief',round(num($('kmRate').value)));audit('Bijgewerkt','Instellingen','Tarieven','Tarieven');persist();render();notify('Tarieven bijgewerkt.',false,true);break;
 case 'edit-activity':{let i=Number(btn.dataset.index),a=app.db.Activiteiten[i];modal(`Activiteit ${i+1}`,`<div class="field"><label>Naam</label><input id="activityName" value="${E(a.Naam)}"></div><div class="field"><label>Uren</label><select id="activityType"><option ${a.SoortUren==='DIRECT'?'selected':''}>DIRECT</option><option ${a.SoortUren==='INDIRECT'?'selected':''}>INDIRECT</option></select></div>`,`${b('Annuleren','close-modal')}${b('Bewaren','save-activity','primary',`data-index="${i}"`)}`);break;}case 'save-activity':{let i=Number(btn.dataset.index),name=$('activityName').value.trim();if(!name||app.db.Activiteiten.some((a,j)=>j!==i&&a.Naam===name)){notify('Kies een unieke naam.',true);break;}let a=app.db.Activiteiten[i];a.Naam=name;a.SoortUren=$('activityType').value;audit('Gewijzigd','Activiteit',String(i),name);closeModal();persist();render();break;}
-case 'connect-cloud':connectCloud();break;case 'disconnect-cloud':clearTimeout(saveTimer);app.cloud.connected=false;app.cloud.etag='';app.cloud.password='';app.cloud.dirty=hasPending(app.year);app.cloud.conflict=false;render();syncStatus();break;case 'create-next-year':createNextYear();break;case 'confirm-new-year':confirmNextYear();break;case 'close-modal':closeModal();break;default:break;}}
+case 'connect-cloud':connectCloud();break;case 'disconnect-cloud':clearTimeout(saveTimer);forgetCloudPassword();app.cloud.connected=false;app.cloud.etag='';app.cloud.password='';app.cloud.dirty=hasPending(app.year);app.cloud.conflict=false;render();syncStatus();break;case 'create-next-year':createNextYear();break;case 'confirm-new-year':confirmNextYear();break;case 'close-modal':closeModal();break;default:break;}}
 function saveWithoutRide(){try{app.wizard.Omschrijving=app.wizard.Omschrijving||'';app.wizard.step=8;app.wizard.hasRide=false;app.wizard.Km='';saveWizardNoRide();}catch(e){notify(e.message,true);}}
 function saveWizardNoRide(){let w=app.wizard;w.step=8;/* saveWizard requires an input on step 8: use a transient skip to avoid mileage validation */let oldStep=w.step;w.step=4;let node=$('wizValue');let saved=node?.value;/* leave read at step 4 harmless */w.step=oldStep;let now=new Date().toISOString();let old=w.id?app.db.Registraties.find(r=>r.Id===w.id):null;let record={Id:old?.Id||uid(),Datum:w.Datum,Projectnummer:w.Projectnummer,Activiteit:w.Activiteit,Omschrijving:w.Omschrijving,Uren:round(num(w.Uren)),SoortUren:w.SoortUren||'DIRECT',VanPostcode:'',NaarPostcode:'',Retour:'',Km:0,ReistijdMinuten:0,KmMethode:'',OdometerBegin:'',OdometerEind:'',WerkelijkVertrek:'',WerkelijkeBestemming:'',RouteOpmerking:'',FacturatieStatus:old?.FacturatieStatus||'open',VroegerGedeclareerdeUren:old?.VroegerGedeclareerdeUren||0,BronMaand:old?.BronMaand||monthOf(w),BronRij:old?.BronRij||'',Aangemaakt:old?.Aangemaakt||now,Gewijzigd:now};if(!w.Datum||!project(w.Projectnummer)||!w.Activiteit||num(w.Uren)<=0){notify('Registratie is niet volledig.',true);return;}if(old&&regHours(record)<num(old.VroegerGedeclareerdeUren)+allocations(old.Id)){notify('Er zijn meer uren gedeclareerd dan het nieuwe totaal.',true);return;}if(old){let prev={...old};Object.assign(old,record);audit('Gewijzigd','Registratie',old.Id,{voor:prev,na:record});}else{app.db.Registraties.push(record);audit('Toegevoegd','Registratie',record.Id,record.Datum);}app.month=monthOf(record);initWizard();app.showAllEntries=false;persist();render();notify('Registratie opgeslagen.',false,true);}
-function init(){let y=Number(new Date().getFullYear());if([2026,2027].includes(y))app.year=y;app.db=initDB(app.year);app.cloud.dirty=hasPending(app.year);app.month=app.year===new Date().getFullYear()?new Date().getMonth()+1:1;initWizard();$('year').innerHTML=Array.from({length:10},(_,i)=>2024+i).map(y=>`<option value="${y}" ${y===app.year?'selected':''}>${y}</option>`).join('');document.querySelector('.tabs').addEventListener('click',e=>{let tab=e.target.closest('[data-page]');if(tab){app.page=tab.dataset.page;eventRender();}});document.body.addEventListener('click',e=>{let el=e.target.closest('[data-action]');if(el){e.preventDefault();clickAction(el.dataset.action,el);}if(e.target.classList.contains('dialog-backdrop'))closeModal();});document.body.addEventListener('change',e=>{let t=e.target;switch(t.id){case 'year':changeYear(Number(t.value));break;case 'projectFilter':app.projectFilter=t.value;render();break;case 'billingProject':initializeBilling(t.value);render();break;case 'monthProjectFilter':app.monthProject=t.value;render();break;case 'billMethod':app.billMethod=t.value;render();break;case 'importFile':importWorkbook(t.files?.[0]);break;case 'businessLogoFile':prepareLogo(t.files?.[0]).catch(e=>notify(e.message,true));break;case 'editHasRide':toggleEditRide();break;case 'billPercentage':app.billPercentage=num(t.value);render();break;case 'billBase':app.billBase=num(t.value);render();break;case 'billOverride':app.billOverride=t.value;render();break;default:break;}if(['editFrom','editTo','editReturn'].includes(t.id))scheduleEditRoute();if(t.id==='editKm'){editRouteRun++;t.dataset.method='Handmatig';const msg=$('editRouteStatus');if(msg)msg.textContent='Handmatig aangepast';}if(t.dataset.billCheck){let id=t.dataset.billCheck;app.billHours[id]=t.checked?availableHours(app.db.Registraties.find(r=>r.Id===id)):0;render();}if(t.dataset.billHours){let id=t.dataset.billHours;let r=app.db.Registraties.find(r=>r.Id===id);app.billHours[id]=Math.min(Math.max(0,num(t.value)),availableHours(r));render();}});document.body.addEventListener('input',e=>{if(['editFrom','editTo','editReturn'].includes(e.target.id))scheduleEditRoute();if(e.target.id==='editKm'){editRouteRun++;e.target.dataset.method='Handmatig';}if(e.target.id==='projectQuery'){let caret=e.target.selectionStart;app.projectQuery=e.target.value;render();let q=$('projectQuery');q?.focus();q?.setSelectionRange(caret,caret);}});document.body.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.closest('.guided-input')&&e.target.tagName!=='TEXTAREA'&&!e.target.closest('button')){e.preventDefault();if(app.wizard.step!==5&&app.wizard.step!==8)wizardNext();else if(app.wizard.step===8)saveWizard();}});$('syncButton').addEventListener('click',()=>{app.page='instellingen';eventRender();});eventRender();}
+function init(){let y=Number(new Date().getFullYear());if([2026,2027].includes(y))app.year=y;app.db=initDB(app.year);app.cloud.dirty=hasPending(app.year);app.month=app.year===new Date().getFullYear()?new Date().getMonth()+1:1;initWizard();$('year').innerHTML=Array.from({length:10},(_,i)=>2024+i).map(y=>`<option value="${y}" ${y===app.year?'selected':''}>${y}</option>`).join('');document.querySelector('.tabs').addEventListener('click',e=>{let tab=e.target.closest('[data-page]');if(tab){app.page=tab.dataset.page;eventRender();}});document.body.addEventListener('click',e=>{let el=e.target.closest('[data-action]');if(el){e.preventDefault();clickAction(el.dataset.action,el);}if(e.target.classList.contains('dialog-backdrop'))closeModal();});document.body.addEventListener('change',e=>{let t=e.target;switch(t.id){case 'year':changeYear(Number(t.value));break;case 'projectFilter':app.projectFilter=t.value;render();break;case 'billingProject':initializeBilling(t.value);render();break;case 'monthProjectFilter':app.monthProject=t.value;render();break;case 'billMethod':app.billMethod=t.value;render();break;case 'importFile':importWorkbook(t.files?.[0]);break;case 'businessLogoFile':prepareLogo(t.files?.[0]).catch(e=>notify(e.message,true));break;case 'editHasRide':toggleEditRide();break;case 'billPercentage':app.billPercentage=num(t.value);render();break;case 'billBase':app.billBase=num(t.value);render();break;case 'billOverride':app.billOverride=t.value;render();break;default:break;}if(['editFrom','editTo','editReturn'].includes(t.id))scheduleEditRoute();if(t.id==='editKm'){editRouteRun++;t.dataset.method='Handmatig';const msg=$('editRouteStatus');if(msg)msg.textContent='Handmatig aangepast';}if(t.dataset.billCheck){let id=t.dataset.billCheck;app.billHours[id]=t.checked?availableHours(app.db.Registraties.find(r=>r.Id===id)):0;render();}if(t.dataset.billHours){let id=t.dataset.billHours;let r=app.db.Registraties.find(r=>r.Id===id);app.billHours[id]=Math.min(Math.max(0,num(t.value)),availableHours(r));render();}});document.body.addEventListener('input',e=>{if(['editFrom','editTo','editReturn'].includes(e.target.id))scheduleEditRoute();if(e.target.id==='editKm'){editRouteRun++;e.target.dataset.method='Handmatig';}if(e.target.id==='projectQuery'){let caret=e.target.selectionStart;app.projectQuery=e.target.value;render();let q=$('projectQuery');q?.focus();q?.setSelectionRange(caret,caret);}});document.body.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.closest('.guided-input')&&e.target.tagName!=='TEXTAREA'&&!e.target.closest('button')){e.preventDefault();if(app.wizard.step!==5&&app.wizard.step!==8)wizardNext();else if(app.wizard.step===8)saveWizard();}});$('syncButton').addEventListener('click',()=>{app.page='instellingen';eventRender();});eventRender();if(app.cloud.url&&app.cloud.password)void connectCloud({automatic:true});}
 window.addEventListener('DOMContentLoaded',init);
 })();

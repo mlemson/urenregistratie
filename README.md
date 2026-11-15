@@ -50,6 +50,8 @@ De website (GitHub Pages) is openbaar; gegevens, WebDAV-adres en wachtwoorden st
 ### Veilig bewaren
 
 - Bij elke wijziging slaat de app direct een lokale kopie op en probeert deze in de cloud te bewaren. Een waarschuwing is zichtbaar zolang STACK niet is bijgewerkt.
+- De toegangscode blijft alleen in de tijdelijke opslag van het huidige browsertabblad (sessionStorage). Na een paginaverversing wordt de STACK-verbinding automatisch hersteld; na sluiten van het tabblad kan opnieuw aanmelden nodig zijn. De code komt niet in lokale permanente opslag, Excel of GitHub.
+- Wijzigingen die je maakte terwijl STACK niet verbonden was, worden na opnieuw verbinden automatisch naar hetzelfde Excel-moederbestand gestuurd **als de online bestandsversie sinds de laatste succesvolle synchronisatie niet veranderd is**. Is die versie wél veranderd, dan stopt automatisch opslaan om gegevensverlies te voorkomen en blijft de lokale kopie staan.
 - De versiecontrole met ETag voorkomt een normale verouderde overschrijving op een andere computer. Gebruik de app niet gelijktijdig op meerdere apparaten; de server is geen volwaardig samenwerkingsplatform met rijvergrendeling.
 - Zijn er lokale wijzigingen voor een bestaand online jaarbestand, dan vraagt de app om eerst een Excel-back-up te downloaden en daarna pas de online versie in te laden. Bij een conflict download je eerst de lokale kopie.
 - Download minimaal maandelijks en bij afsluiting van het jaar een aparte back-up. STACK en lokale browseropslag zijn niet hetzelfde als een onafhankelijk back-uparchief.

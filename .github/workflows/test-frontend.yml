@@ -1,0 +1,23 @@
+name: Controleer synchronisatie
+on:
+  push:
+    branches: [main]
+    paths:
+      - app.js
+      - tests/frontend-sync.test.mjs
+      - .github/workflows/test-frontend.yml
+  pull_request:
+    paths:
+      - app.js
+      - tests/frontend-sync.test.mjs
+      - .github/workflows/test-frontend.yml
+jobs:
+  browserlogic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check app.js
+      - run: node --test tests/frontend-sync.test.mjs
