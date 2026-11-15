@@ -59,14 +59,17 @@ async function ensureFolder(env) {
   if(![201,405].includes(result.status))throw Error(`STACK-map niet beschikbaar (${result.status}). Maak de map LA-Uren aan op STACK.`);
 }
 async function geocode(postcode) {
-  const q=postcode.trim();if(q.length<4||q.length>100)throw Error('Postcode/adres ongeldig');
+  const q=String(postcode).trim();if(q.length<4||q.length>100)throw Error('Postcode/adres ongeldig');
+  const code=q.toUpperCase().replace(/\s+/g,'');const exact=/^[1-9][0-9]{3}[A-Z]{2}$/.test(code);
   const url=new URL('https://api.pdok.nl/bzk/locatieserver/search/v3_1/free');
-  url.searchParams.set('q',q);url.searchParams.set('rows','1');
+  url.searchParams.set('q',exact?code:q);url.searchParams.set('rows','10');
+  if(exact)url.searchParams.set('fq','type:postcode');
   const r=await fetch(url,{headers:{Accept:'application/json'}});
   if(!r.ok)throw Error('Locatieserver niet beschikbaar');
-  const j=await r.json(),wkt=j?.response?.docs?.[0]?.centroide_ll;
-  const m=String(wkt||'').match(/^POINT\s*\(([-\d.]+)\s+([-\d.]+)\)$/i);
-  if(!m)throw Error('Geen locatie gevonden');
+  const j=await r.json(),docs=j?.response?.docs||[];
+  const doc=exact?docs.find(d=>String(d.postcode||d.weergavenaam||'').toUpperCase().replace(/\s+/g,'').includes(code)):docs[0];
+  const m=String(doc?.centroide_ll||'').match(/^POINT\s*\(([-\d.]+)\s+([-\d.]+)\)$/i);
+  if(!m)throw Error('Geen passende postcode gevonden');
   return [Number(m[1]),Number(m[2])];
 }
 async function routedKm(a,b,env) {

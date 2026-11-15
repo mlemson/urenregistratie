@@ -4,12 +4,14 @@ Webapp voor Lemson Architecten. Geschikt voor actuele Windows- en macOS-browsers
 
 ## Direct gebruiken
 
+**Cloudflare en STACK zijn verschillende diensten.** STACK bewaart het Excel-moederbestand. Cloudflare Workers is een apart beveiligd tussenstation, omdat GitHub Pages niet rechtstreeks met een geheim STACK-wachtwoord kan synchroniseren. Zonder Cloudflare kan de app lokaal worden gebruikt met import/export; synchronisatie tussen computers is dan nog niet actief.
+
 1. Open `index.html` in een browser, of publiceer de bestanden uit de webmap op GitHub Pages.
 2. Ga naar **Instellingen → Bestand → Importeren** en selecteer het privébestand `LA-Uren-Km-2026.xlsx`.
 3. Voer nieuwe uren in onder **Registreren**. Via **Overzicht** is een maandoverzicht per project als CSV of PDF af te drukken.
 4. Download geregeld een nieuwe Excel-export totdat de STACK-koppeling werkt.
 
-Het projectnummer toont meteen de projectomschrijving. Er zijn tien instelbare activiteiten. Bestaande registraties kunnen worden gewijzigd. De huidige maand toont zes regels, desgewenst alle regels. In **Projecten** staan totalen per maand en jaar. In **Declaraties** kunnen uren ook gedeeltelijk worden gedeclareerd.
+Het projectnummer toont meteen de projectomschrijving. Er zijn tien instelbare activiteiten. Bestaande registraties en projecten worden in één venster aangepast; alleen nieuwe registraties doorlopen de vragen stapsgewijs. De bedrijfsnaam en het logo zijn instelbaar onder **Instellingen → Bedrijf** en worden in de Excel-werkmap opgeslagen (logo automatisch verkleind voor Excel). Datumregels tonen weekdag en jaar. De huidige maand toont zes regels, desgewenst alle regels. In **Projecten** staan totalen per maand en jaar. In **Declaraties** kunnen uren ook gedeeltelijk worden gedeclareerd.
 
 ## STACK-koppeling
 
@@ -65,7 +67,7 @@ Deze tests gebruiken alleen fictieve WebDAV-gegevens en bereiken niet de echte S
 ## Registratie en fiscus
 
 - **2026:** het standaard rekenbedrag voor zakelijke kilometers met privévervoer is € 0,25 per kilometer. Dit is een inkomstenbelastingberekening, niet automatisch een aan klanten factureerbaar tarief. Voor 2027 is het tarief bewust niet ingevuld.
-- Autoafstand wordt op basis van postcodelocaties en de autoroute berekend wanneer een routeplanner bereikbaar is. De uitkomst is indicatief; controleer of deze overeenkomt met de werkelijk gereden afstand. Voor volledige fiscale rittenregistratie (zoals bewijs van maximaal 500 privé-kilometers bij een zakelijke auto) zijn begin-/eindkilometerstand, werkelijke adressen, beide ritten van een retour en uitzonderlijke routes belangrijk. Gebruik daarvoor de uitbreidbare ritgegevens en laat de registratie op jouw autosituatie aansluiten.
+- Bij de registratie en in het bewerkvenster wordt de autoroute van vertrekpostcode naar bestemmingspostcode automatisch berekend; standaard is dit een retourrit (2 × enkele reis). Het is mogelijk een enkele reis te kiezen of het aantal kilometers handmatig te corrigeren. De postcodezoeker gebruikt PDOK en de router gebruikt bij ontbrekende ORS-sleutel een openbare OSRM-demodienst. Die demodienst heeft beperkingen en geen beschikbaarheidsgarantie; voor structureel zakelijk gebruik verdient een eigen router of OpenRouteService met toegangssleutel de voorkeur. Autoafstand wordt op basis van postcodelocaties en de autoroute berekend wanneer een routeplanner bereikbaar is. De uitkomst is indicatief; controleer of deze overeenkomt met de werkelijk gereden afstand. Voor volledige fiscale rittenregistratie (zoals bewijs van maximaal 500 privé-kilometers bij een zakelijke auto) zijn begin-/eindkilometerstand, werkelijke adressen, beide ritten van een retour en uitzonderlijke routes belangrijk. Gebruik daarvoor de uitbreidbare ritgegevens en laat de registratie op jouw autosituatie aansluiten.
 - Ook indirecte ondernemersuren worden meegenomen in het jaaroverzicht.
 - De declaratiepagina maakt **voorstellen/registraties**, geen juridisch volledige btw-facturen. Bewaar de werkelijk verzonden facturen daarnaast, inclusief de verplichte afnemer- en btw-gegevens.
 - De app houdt een mutatielog bij en ondersteunt een downloadbare Excel-back-up. Voor de fiscale bewaarplicht is betrouwbaar bewaren en terug kunnen vinden noodzakelijk. Bewaar de definitieve jaarexporten en originele facturen doorgaans 7 jaar; bij specifieke gegevens over onroerende zaken kan 10 jaar gelden.
@@ -81,6 +83,7 @@ De oude factuurbedragen en referenties staan in `HistorischeDeclaraties`. De oor
 - `index.html`, `style.css`, `app.js`: browserprogramma.
 - `seed.js`: lege startconfiguratie. Geen persoonsgegevens.
 - `server/worker.js`: beveiligde WebDAV-adapter en routeberekening.
+- `server/worker.test.mjs`: tests voor beveiliging, opslagversies en postcoderoutes.
 - Excel-moederbestanden: afzonderlijk downloaden en **privé** bewaren.
 
 SheetJS 0.20.3 wordt vanaf de officiële SheetJS-CDN geladen. Om volledig onafhankelijk van internet-CDN's te werken kan de scriptbibliotheek later lokaal worden opgeslagen en via een relatief pad worden geladen.

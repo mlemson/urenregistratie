@@ -95,3 +95,33 @@ test('connection check distinguishes absent and present folder',async()=>{
  assert.equal(r.status,200);
  assert.equal((await r.json()).ready,true);
 });
+
+
+test('postcode tot postcode geeft een autoroute (enkele reis)',async()=>{
+ const calls=[];
+ globalThis.fetch=async(input,options={})=>{
+  const u=String(input);calls.push(u);
+  if(u.startsWith('https://api.pdok.nl/')){
+   const query=new URL(u).searchParams.get('q');
+   const code=query.replace(/\s+/g,'').toUpperCase();
+   const point=code==='7462MR'?'POINT (6.5 52.25)':'POINT (6.65 52.28)';
+   return new Response(JSON.stringify({response:{docs:[{postcode:code,centroide_ll:point}]}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }
+  if(u.startsWith('https://router.project-osrm.org/'))return new Response(JSON.stringify({routes:[{distance:12500}]}),{status:200});
+  throw Error('Niet verwacht: '+u);
+ };
+ const r=await run('GET','/api/route?from=7462%20MR&to=7511%20AB');
+ assert.equal(r.status,200);const d=await r.json();assert.equal(d.km,12.5);
+ assert.ok(calls.filter(x=>x.startsWith('https://api.pdok.nl/')).length===2);
+ assert.ok(calls.some(x=>x.startsWith('https://router.project-osrm.org/')));
+});
+
+test('route weigert onjuiste postcodes in plaats van een andere locatie te kiezen',async()=>{
+ globalThis.fetch=async(input)=>{
+  const u=String(input);
+  if(u.startsWith('https://api.pdok.nl/'))return new Response(JSON.stringify({response:{docs:[{postcode:'1234AB',centroide_ll:'POINT (6 52)'}]}}),{status:200});
+  throw Error('Er mocht geen routeberekening plaatsvinden');
+ };
+ const r=await run('GET','/api/route?from=7462%20MR&to=7511%20AB');
+ assert.equal(r.status,422);
+});
