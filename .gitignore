@@ -1,0 +1,11 @@
+# De privébestanden mogen niet in een publieke repository terechtkomen
+*.xlsx
+*.xls
+*.numbers
+*private*
+bronarchief*.json
+importcontrole*.json
+*.csv
+.env
+.env.*
+.wrangler/

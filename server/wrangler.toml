@@ -1,0 +1,12 @@
+name = "la-uren-stack"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+# Publiek adres van de GitHub Pages-app. Dit is geen geheim.
+[vars]
+APP_ORIGIN = "https://mlemson.github.io"
+
+# Andere instellingen horen in de Cloudflare Worker-omgeving:
+# STACK_FOLDER_URL = <privé WebDAV-map op STACK>
+# STACK_USER, STACK_TOKEN en APP_PASSWORD = Secrets
+# ORS_API_KEY = optioneel Secret voor routeplanner

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f5f4f0">
+<title>LA · Uren en kilometers</title>
+<link rel="stylesheet" href="style.css">
+<script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script defer src="seed.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<div class="app-shell">
+  <header class="masthead">
+    <div class="brand"><span class="brand-icon">LA</span><div><strong>Lemson Architecten</strong><small>Uren en kilometers</small></div></div>
+    <div class="header-actions">
+      <div class="year-choice"><label for="year">Jaar</label><select id="year"><option>2026</option><option>2027</option></select></div>
+      <button class="save-status" id="syncButton" type="button" title="Opslag beheren"><span id="syncDot" class="dot amber"></span><span id="syncLabel">Lokaal bewaard</span></button>
+    </div>
+  </header>
+  <nav class="tabs" aria-label="Hoofdnavigatie">
+    <button class="tab active" data-page="registreren">Registreren</button>
+    <button class="tab" data-page="projecten">Projecten</button>
+    <button class="tab" data-page="declaraties">Declaraties</button>
+    <button class="tab" data-page="overzicht">Overzicht</button>
+    <button class="tab" data-page="instellingen">Instellingen</button>
+  </nav>
+  <div id="notice" class="notice" hidden></div>
+  <main id="app"></main>
+  <footer class="footer"><span id="fileName">LA-Uren-Km-2026.xlsx</span><span id="footerHint">Gegevens staan op dit apparaat totdat STACK is verbonden.</span></footer>
+</div>
+<div id="dialogRoot"></div>
+</body>
+</html>
