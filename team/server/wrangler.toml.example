@@ -1,0 +1,12 @@
+name = "urenregistratie-team-test"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+workers_dev = true
+preview_urls = false
+[vars]
+APP_ORIGIN = "https://mlemson.github.io"
+[[d1_databases]]
+binding = "DB"
+database_name = "urenregistratie-team-test"
+database_id = "VUL-D1-ID-IN"
+# Secrets: SETUP_KEY (random >=32 chars), STORAGE_KEY (base64 32 random bytes).
