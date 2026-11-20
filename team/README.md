@@ -2,6 +2,26 @@
 
 Losstaande ontwikkelversie. De bestaande website en Worker in `/server` blijven ongewijzigd. Gebruik uitsluitend fictieve pilotgegevens tot live- en beveiligingsacceptatie. **Niet het bestaande STACK-moederbestand vervangen.**
 
+## Concrete testomgeving (bestaande D1)
+
+De lege database `testdatabase` is al aangemaakt. De verbindingsconfiguratie staat in `team/server/wrangler.toml`; hierin staan geen geheimen. De Worker dient uitsluitend de pilotfrontend als statische assets en gebruikt een afzonderlijke D1-binding. De oude Worker en website blijven intact.
+
+Vanaf de repository-root, op branch `ontwikkeling/multi-bedrijf`:
+
+```sh
+cd team/server
+npx wrangler login
+node prepare-assets.mjs
+npx wrangler d1 migrations apply DB --remote
+npx wrangler deploy
+npx wrangler secret put SETUP_KEY
+npx wrangler secret put STORAGE_KEY
+```
+
+De verwachte Worker-naam is `urenregistratie-team-test`. De URL wordt door Wrangler bevestigd; bij een andere accountsubdomeinnaam moet APP_ORIGIN worden aangepast. Genereer de geheimen lokaal, bijvoorbeeld met een wachtwoordmanager (SETUP_KEY) en `openssl rand -base64 32` (STORAGE_KEY). Deel ze niet en publiceer ze niet. Gebruik de link naar de Worker zelf om de pilot te openen: de frontend staat op /team/. Test uitsluitend met fictieve gegevens.
+
+Voor Workers Builds: selecteer de ontwikkelbranch, root directory /team/server, build command `node prepare-assets.mjs`, deploy command `npx wrangler deploy`. Initialiseer D1 eerst via de hierboven beschreven migratie, met een geautoriseerde Wrangler-login. Zet de twee secrets bij runtimevariabelen van de afzonderlijke Worker. Schakel preview builds uit.
+
 ## Functies
 
 - Eén webapp, gescheiden bedrijfsomgevingen (bedrijfscode + e-mail + wachtwoord), zelfstandige of bedrijf. Bedrijven worden door de platformbeheerder met een installatiecode aangemaakt. Eigenaar nodigt medewerkers uit met een eenmalige code (48 uur), medewerkers kiezen zelf een wachtwoord. Rollen eigenaar, administratie en medewerker. Deactiveren beëindigt sessies.

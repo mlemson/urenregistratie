@@ -1,0 +1,10 @@
+import {mkdir,copyFile,writeFile,readFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const here=path.dirname(fileURLToPath(import.meta.url));
+const out=path.join(here,'public');
+await mkdir(path.join(out,'team'),{recursive:true});
+for(const file of ['style.css','agenda.css','agenda.js','agenda-drag.js'])await copyFile(path.join(here,'../..',file),path.join(out,file));
+for(const file of ['index.html','team.css','team.js'])await copyFile(path.join(here,'..',file),path.join(out,'team',file));
+await writeFile(path.join(out,'index.html'),'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/team/"><a href="/team/">Open de testomgeving</a>');
+console.log('Pilot frontend assembled.');

@@ -1,0 +1,18 @@
+name = "urenregistratie-team-test"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+workers_dev = true
+preview_urls = false
+keep_vars = true
+
+[vars]
+APP_ORIGIN = "https://urenregistratie-team-test.mauricelemson.workers.dev"
+
+[assets]
+directory = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "testdatabase"
+database_id = "8de423c1-c45b-454a-8d1c-cca8920956b1"
+migrations_dir = "migrations"
