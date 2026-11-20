@@ -12,3 +12,37 @@ test('partial billing atomically reserves hours and blocks double allocation and
 test('password checks, sessions, administrator and disabled employee',async()=>{const f=fixture(),a=await f.company('bureau-a');const m=await f.member(a,'admin@example.org','admin');assert.equal((await f.request('/login','',{slug:'bureau-a',email:'owner@example.org',password:'wrong-password'})).status,401);assert.equal((await f.request('/login','',{slug:'bureau-a',email:'owner@example.org',password:'abcdefghijklmnop'})).status,200);assert.equal((await f.request('/invites',m.token,{email:'x@example.org'})).status,403);const id=(await f.ok('/me',m.token)).id;await f.ok('/members/disable',a,{id});assert.equal((await f.request('/me',m.token)).status,401);await f.ok('/logout',a,{});assert.equal((await f.request('/me',a)).status,401);});
 test('company STACK configuration encrypted and backup isolated',async()=>{const f=fixture(),a=await f.company('bureau-a'),b=await f.company('bureau-b');const original=globalThis.fetch,calls=[];globalThis.fetch=async(url,opts)=>{calls.push({url,opts});return new Response(null,{status:opts.method==='PROPFIND'?207:201});};try{await f.ok('/storage',a,{url:'https://example.stack.storage/remote.php/webdav/uren',user:'test-user',token:'private-token'});const row=f.sql.prepare('SELECT storage FROM companies WHERE slug=?').get('bureau-a');assert.ok(!row.storage.includes('private-token'));assert.ok(!row.storage.includes('test-user'));assert.equal((await f.ok('/storage',b)).configured,false);const payload=new Uint8Array([80,75,3,4]).buffer;assert.equal((await f.request('/backup',b,payload)).status,400);const result=await f.ok('/backup',a,payload);assert.match(result.name,/^Uren-backup-.*\.xlsx$/);assert.equal(calls[1].opts.headers['If-None-Match'],'*');assert.match(calls[1].url,/example\.stack\.storage/);assert.ok(!JSON.stringify(await f.ok('/export',a)).includes('private-token'));}finally{globalThis.fetch=original;}});
 test('input validation and strict STACK host allowlist',()=>{assert.equal(registration(entry()).minutes,120);assert.throws(()=>registration(entry({date:'2026-02-30'})));assert.throws(()=>registration(entry({end:'08:00'})));assert.throws(()=>stackURL('https://example.stack.storage.evil.test/remote.php/webdav/uren'));assert.throws(()=>stackURL('http://example.stack.storage/remote.php/webdav/uren'));});
+test('route resolves exact postcode centers and uses direct OSRM car endpoint',async()=>{
+ const f=fixture(),a=await f.company('route-test'),original=globalThis.fetch,calls=[];
+ globalThis.fetch=async(url,opts)=>{calls.push(String(url));assert.ok(opts.headers['User-Agent']);
+  if(String(url).startsWith('https://api.pdok.nl/')){const p=new URL(url).searchParams.get('q');return Response.json({response:{docs:[{postcode:p,centroide_ll:p==='1234AB'?'POINT (5.1 52.1)':'POINT (5.5 52.5)'}]}});}
+  assert.match(String(url),/^https:\/\/routing\.openstreetmap\.de\/routed-car\/route\/v1\/driving\//);
+  return Response.json({code:'Ok',routes:[{distance:12345}]});
+ };
+ try{const r=await f.ok('/route',a,{from:'1234 AB',to:'5678 cd'});assert.equal(r.km,12.35);assert.match(r.source,/OSRM/);assert.equal(calls.length,3);assert.equal((await f.request('/route',a,{from:'123',to:'5678CD'})).status,400);assert.equal((await f.request('/route','',{from:'1234AB',to:'5678CD'})).status,401);}
+ finally{globalThis.fetch=original;}
+});
+test('route fails with a specific network or provider error, never artificial kilometers',async()=>{
+ const f=fixture(),a=await f.company('route-test'),original=globalThis.fetch;
+ const goodGeo=url=>{const p=new URL(url).searchParams.get('q');return Response.json({response:{docs:[{postcode:p,centroide_ll:p==='1234AB'?'POINT (5.1 52.1)':'POINT (5.5 52.5)'}]}});};
+ try{
+ globalThis.fetch=async()=>{throw Error('internal network details');};
+ let r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,502);assert.match(r.data.error,/Postcodeservice/);assert.doesNotMatch(r.data.error,/internal network/);
+ globalThis.fetch=async url=>String(url).includes('api.pdok.nl')?goodGeo(url):Promise.reject(Error('network'));
+ r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,502);assert.match(r.data.error,/Routeplanner/);
+ globalThis.fetch=async url=>String(url).includes('api.pdok.nl')?goodGeo(url):new Response('',{status:429});
+ r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,429);assert.match(r.data.error,/overbelast/);
+ globalThis.fetch=async()=>Response.json({response:{docs:[{postcode:'9999ZZ',centroide_ll:'POINT (5.1 52.1)'}]}});
+ r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,422);assert.match(r.data.error,/niet gevonden/);
+ }finally{globalThis.fetch=original;}
+});
+test('optional ORS route provider uses server-side API key only for ORS',async()=>{
+ const f=fixture(),a=await f.company('route-test'),original=globalThis.fetch;f.env.ORS_API_KEY='test-secret';
+ globalThis.fetch=async(url,opts)=>{
+  if(String(url).includes('api.pdok.nl')){assert.equal(opts.headers.Authorization,undefined);const p=new URL(url).searchParams.get('q');return Response.json({response:{docs:[{postcode:p,centroide_ll:p==='1234AB'?'POINT (5.1 52.1)':'POINT (5.5 52.5)'}]}});}
+  assert.equal(new URL(url).hostname,'api.openrouteservice.org');assert.equal(opts.headers.Authorization,'test-secret');
+  return Response.json({features:[{properties:{summary:{distance:30000}}}]});
+ };
+ try{const r=await f.ok('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.km,30);assert.match(r.source,/OpenRouteService/);}
+ finally{globalThis.fetch=original;}
+});

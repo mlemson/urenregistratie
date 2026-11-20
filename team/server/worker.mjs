@@ -33,6 +33,48 @@ function stackURL(v){let u;try{u=new URL(v);}catch{fail(400,'Ongeldig STACK-adre
 async function seal(env,id,v){const iv=crypto.getRandomValues(new Uint8Array(12));const out=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(id)},await aes(env),enc.encode(JSON.stringify(v)));return JSON.stringify({iv:Array.from(iv),data:Array.from(new Uint8Array(out))});}
 async function unseal(env,id,v){const p=JSON.parse(v);return JSON.parse(dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(p.iv),additionalData:enc.encode(id)},await aes(env),new Uint8Array(p.data))));}
 const davAuth=s=>'Basic '+btoa(String.fromCharCode(...enc.encode(s.user+':'+s.token)));
+
+function postcode(v){const p=text(v,20).toUpperCase().replace(/\s+/g,'');if(!/^[1-9][0-9]{3}[A-Z]{2}$/.test(p))fail(400,'Gebruik twee volledige Nederlandse postcodes.');return p;}
+async function routeJSON(url,name,headers={}){
+ let response;
+ try{response=await fetch(String(url),{headers:{Accept:'application/json','User-Agent':'Urenregistratie-team-pilot/1.0 (mlemson.github.io/urenregistratie)',...headers},redirect:'error',signal:AbortSignal.timeout(8000)});}
+ catch{fail(502,name+' is niet bereikbaar. Probeer later opnieuw of vul kilometers handmatig in.');}
+ if(response.status===429)fail(429,name+' is tijdelijk overbelast. Probeer later opnieuw of vul kilometers handmatig in.');
+ if(!response.ok)fail(502,name+' niet beschikbaar (HTTP '+response.status+'). Vul eventueel kilometers handmatig in.');
+ try{return await response.json();}catch{fail(502,name+' geeft een ongeldig antwoord. Vul eventueel kilometers handmatig in.');}
+}
+async function geo(p){
+ const url=new URL('https://api.pdok.nl/bzk/locatieserver/search/v3_1/free');
+ url.searchParams.set('q',p);url.searchParams.set('fq','type:postcode');url.searchParams.set('rows','10');url.searchParams.set('fl','postcode,weergavenaam,centroide_ll');
+ const j=await routeJSON(url,'Postcodeservice (PDOK)');
+ const row=j?.response?.docs?.find(d=>String(d.postcode||d.weergavenaam||'').toUpperCase().replace(/\s+/g,'')===p);
+ const m=String(row?.centroide_ll||'').match(/^POINT\s*\(([-\d.]+)\s+([-\d.]+)\)$/i);
+ if(!m)fail(422,'Postcode '+p+' niet gevonden.');
+ const [lng,lat]=m.slice(1).map(Number);
+ if(!Number.isFinite(lng)||!Number.isFinite(lat)||Math.abs(lng)>180||Math.abs(lat)>90)fail(502,'Postcodeservice geeft ongeldige coördinaten.');
+ return lng+','+lat;
+}
+async function routeDistance(b,env){
+ const from=postcode(b.from),to=postcode(b.to);
+ // Resolve both postcodes even if identical, so unknown postcodes never pass validation.
+ const [a,z]=await Promise.all([geo(from),geo(to)]);
+ if(a===z)return {km:0,source:'PDOK (postcodecentra)'};
+ let meters,source;
+ if(env.ORS_API_KEY){
+  const url=new URL('https://api.openrouteservice.org/v2/directions/driving-car');
+  url.searchParams.set('start',a);url.searchParams.set('end',z);
+  const data=await routeJSON(url,'Routeplanner (OpenRouteService)',{Authorization:env.ORS_API_KEY});
+  meters=data?.features?.[0]?.properties?.summary?.distance;source='OpenRouteService / OpenStreetMap (postcodecentra)';
+ }else{
+  // Use the direct car-routing endpoint rather than a demo hostname that can redirect.
+  const data=await routeJSON('https://routing.openstreetmap.de/routed-car/route/v1/driving/'+a+';'+z+'?overview=false','Routeplanner (OSRM)');
+  if(data?.code==='NoRoute'||data?.code==='NoSegment')fail(422,'Geen autoroute tussen deze postcodes gevonden.');
+  meters=data?.routes?.[0]?.distance;source='OSRM / OpenStreetMap (postcodecentra)';
+ }
+ if(!Number.isFinite(meters)||meters<0)fail(422,'Geen geldige autoroute gevonden. Vul de kilometers handmatig in.');
+ return {km:Math.round(meters/10)/100,source};
+}
+
 async function handler(req,env){const db=env.DB,p=new URL(req.url).pathname,m=req.method;const ip=req.headers.get('CF-Connecting-IP')||'unknown';
  if(p==='/setup'&&m==='POST'){
   await limit(db,'setup:'+ip);const b=await body(req);if(!env.SETUP_KEY||env.SETUP_KEY.length<32||typeof b.key!=='string'||!same(await digest(b.key),await digest(env.SETUP_KEY)))fail(403,'Setup niet toegestaan');
@@ -56,8 +98,7 @@ async function handler(req,env){const db=env.DB,p=new URL(req.url).pathname,m=re
  if(p==='/claims/status'&&m==='POST'){requireManager(u);const b=await body(req);if(!['sent','void'].includes(b.status))fail(400,'Ongeldige status');const id=text(b.id,80);const result=await db.batch([stmt(db,"UPDATE claims SET status=? WHERE company_id=? AND id=? AND status='draft'",b.status,c,id),audit(db,u,'claim.'+b.status,id)]);if(!result[0].meta.changes)fail(409,'Declaratie niet meer wijzigbaar');return {ok:true};}
  if(p==='/route'&&m==='POST'){
  const b=await body(req);await limit(db,'route:'+u.id);
- const geo=async(v)=>{const postcode=text(v,20).toUpperCase().replace(/\s+/g,'');if(!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode))fail(400,'Gebruik een volledige postcode');const url=new URL('https://api.pdok.nl/bzk/locatieserver/search/v3_1/free');url.searchParams.set('q',postcode);url.searchParams.set('fq','type:postcode');url.searchParams.set('rows','10');const response=await fetch(url,{redirect:'error'});if(!response.ok)fail(502,'Postcodeservice niet beschikbaar');const j=await response.json(),row=j.response?.docs?.find(d=>String(d.postcode||d.weergavenaam||'').toUpperCase().replace(/\s+/g,'').includes(postcode)),m=String(row?.centroide_ll||'').match(/^POINT\s*\(([-\d.]+)\s+([-\d.]+)\)$/i);if(!m)fail(422,'Postcode niet gevonden');return m.slice(1).map(Number).join(',');};
- const [a,z]=await Promise.all([geo(b.from),geo(b.to)]);if(a===z)return {km:0};const response=await fetch('https://router.project-osrm.org/route/v1/driving/'+a+';'+z+'?overview=false',{redirect:'error'});if(!response.ok)fail(502,'Routeplanner niet beschikbaar');const j=await response.json(),meters=j.routes?.[0]?.distance;if(!Number.isFinite(meters)||meters<0)fail(422,'Geen route gevonden');return {km:Math.round(meters/10)/100};
+ return routeDistance(b,env);
  }
  if(p==='/storage'&&m==='POST'){requireOwner(u);const b=await body(req),storage={url:stackURL(text(b.url,500)),user:text(b.user,200),token:text(b.token,500)};const check=await fetch(storage.url,{method:'PROPFIND',headers:{Authorization:davAuth(storage),Depth:'0'},redirect:'error'});if(![200,207].includes(check.status))fail(502,'STACK-map niet bereikbaar');await run(db,'UPDATE companies SET storage=? WHERE id=?',await seal(env,c,storage),c);return {ok:true};}
  if(p==='/storage'&&m==='GET'){requireOwner(u);return {configured:!!(await one(db,'SELECT storage FROM companies WHERE id=?',c))?.storage};}
