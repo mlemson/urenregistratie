@@ -60,3 +60,28 @@ test('independent postcode fallback survives complete PDOK outage and never uses
  assert.equal((await f.request('/route',a,{from:'1234AB',to:'5678CD'})).status,422);
  }finally{globalThis.fetch=original;}
 });
+
+test('optional modules are off initially, owner-managed, tenant-isolated, and retain disabled data',async()=>{
+ const f=fixture(),a=await f.company('modules-a'),b=await f.company('modules-b'),m=await f.member(a,'person@example.org');
+ const initial=await f.ok('/data?year=2026',a);assert.equal(initial.modules.clients,0);assert.equal(initial.preferences.dark,0);
+ assert.equal((await f.request('/clients',a,{name:'Disabled'})).status,403);
+ assert.equal((await f.request('/modules',m.token,{clients:true,budgets:true,warnings:true})).status,403);
+ assert.equal((await f.request('/modules',a,{clients:false,budgets:false,warnings:true})).status,400);
+ await f.ok('/modules',a,{clients:true,budgets:true,warnings:true});
+ const cl=await f.ok('/clients',a,{name:'Klant A',email:'test@example.org'});
+ await f.ok('/modules',b,{clients:true,budgets:true,warnings:true});
+ assert.equal((await f.request('/projects',b,{code:'P1',name:'Cross tenant',client_id:cl.id})).status,400);
+ await f.ok('/projects',a,{code:'P1',name:'Project A',rate:10000,client_id:cl.id,budget_minutes:120,budget_cents:25000});
+ await f.ok('/entries',a,entry());await f.ok('/entries',m.token,entry({date:'2027-01-01',start:'',end:'',minutes:60}));
+ const data=await f.ok('/data?year=2026',a);assert.equal(data.clients[0].name,'Klant A');assert.equal(data.projects[0].used_minutes,180);assert.equal(data.projects[0].used_cents,30000);
+ const employee=await f.ok('/data?year=2026',m.token);assert.equal(employee.clients.length,0);assert.equal(employee.projects[0].budget_cents,undefined);assert.equal(employee.projects[0].used_minutes,undefined);
+ await f.ok('/preferences',m.token,{stopwatch:true,repeat_entry:true,dark:true});assert.equal((await f.ok('/data?year=2026',m.token)).preferences.dark,1);assert.equal((await f.ok('/data?year=2026',a)).preferences.dark,0);
+ await f.ok('/modules',a,{clients:false,budgets:false,warnings:false});await f.ok('/projects',a,{code:'P1',name:'Renamed',rate:10000});assert.equal((await f.ok('/data?year=2026',a)).projects[0].budget_minutes,undefined);
+ await f.ok('/modules',a,{clients:true,budgets:true,warnings:true});const restored=await f.ok('/data?year=2026',a);assert.equal(restored.projects[0].client_id,cl.id);assert.equal(restored.projects[0].budget_minutes,120);assert.equal((await f.ok('/data?year=2026',b)).clients.length,0);
+ const exported=await f.ok('/export',a);assert.equal(exported.clients[0].id,cl.id);assert.equal(exported.project_extras[0].budget_cents,25000);
+});
+test('optional schema can initialize an existing pilot without deleting rows',async()=>{
+ const f=fixture(),a=await f.company('old-pilot');await f.ok('/projects',a,{code:'P1',name:'Existing'});
+ f.sql.exec('DROP TABLE optional_schema_v1; DROP TABLE project_extras; DROP TABLE clients; DROP TABLE member_preferences; DROP TABLE company_modules;');
+ const data=await f.ok('/data?year=2026',a);assert.equal(data.projects[0].name,'Existing');assert.equal(data.modules.clients,0);assert.equal((await f.ok('/data?year=2026',a)).preferences.dark,0);
+});
