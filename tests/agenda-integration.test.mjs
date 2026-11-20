@@ -22,7 +22,7 @@ function setup({confirmOverlap=true}={}){
   render=()=>{};closeModal=()=>{};initWizard=()=>{};syncStatus=()=>{};notify=(m)=>{};`;
  vm.runInNewContext(appSource.replace(end,hook+'\n'+end),context,{filename:'app.js'});
  const h=context.__test;
- h.app.year=2026;h.app.db=h.defaultDB(2026);h.app.db.Projecten.push({Projectnummer:'P1',Omschrijving:'Woning',Actueel:'J'});
+ h.app.year=2026;h.app.cloud.connected=true;h.app.db=h.defaultDB(2026);h.app.db.Projecten.push({Projectnummer:'P1',Omschrijving:'Woning',Actueel:'J'});
  return {h,get,field,errors,window};
 }
 test('timed entry from calendar saves explicit times and derives hours',()=>{
@@ -72,4 +72,12 @@ test('single calendar click still proposes one hour',()=>{
  assert.equal(h.newEntryDefaults.Begintijd,'14:30');
  assert.equal(h.newEntryDefaults.Eindtijd,'15:30');
  assert.equal(h.newEntryDefaults.Uren,1);
+});
+
+test('agenda entries cannot be added or changed when logged out',()=>{
+ const {h}=setup();h.app.cloud.connected=false;
+ h.agendaNew({dataset:{date:'2026-11-11',time:'09:00',end:'11:00'}});
+ h.saveEntryEdit('');
+ assert.equal(h.newEntryDefaults,undefined);
+ assert.equal(h.app.db.Registraties.length,0);
 });

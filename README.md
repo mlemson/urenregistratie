@@ -16,18 +16,18 @@ De Excel-werkmap bewaart de optionele kolommen `Begintijd` en `Eindtijd`. Oudere
 
 ## Direct gebruiken
 
-**Cloudflare en STACK zijn verschillende diensten.** STACK bewaart het Excel-moederbestand. Cloudflare Workers is een apart beveiligd tussenstation, omdat GitHub Pages niet rechtstreeks met een geheim STACK-wachtwoord kan synchroniseren. Zonder Cloudflare kan de app lokaal worden gebruikt met import/export; synchronisatie tussen computers is dan nog niet actief.
+**Cloudflare en STACK zijn verschillende diensten.** STACK bewaart het Excel-moederbestand. Cloudflare Workers is een apart beveiligd tussenstation, omdat GitHub Pages niet rechtstreeks met een geheim STACK-wachtwoord kan synchroniseren. De webapp vereist inloggen met de aparte toegangscode voordat de gegevens zichtbaar of bewerkbaar zijn.
 
 1. Open `index.html` in een browser, of publiceer de bestanden uit de webmap op GitHub Pages.
-2. Ga naar **Instellingen → Bestand → Importeren** en selecteer het privébestand `LA-Uren-Km-2026.xlsx`.
-3. Voer nieuwe uren in onder **Registreren**. Via **Overzicht** is een maandoverzicht per project als CSV of PDF af te drukken.
-4. Download geregeld een nieuwe Excel-export totdat de STACK-koppeling werkt.
+2. Zorg dat het privébestand `LA-Uren-Km-2026.xlsx` op STACK staat (zie de eenmalige configuratie hieronder).
+3. Log in met het Cloudflare Worker-adres en de afzonderlijke toegangscode. Voer nieuwe uren in via **Agenda** of **Registreren**.
+4. Via **Instellingen → Bestand** kun je een Excel-export downloaden. Een import vervangt uitsluitend met bevestiging en versiecontrole het bestaande online jaarbestand.
 
 Het projectnummer toont meteen de projectomschrijving. Er zijn tien instelbare activiteiten. Bestaande registraties en projecten worden in één venster aangepast; alleen nieuwe registraties doorlopen de vragen stapsgewijs. De bedrijfsnaam en het logo zijn instelbaar onder **Instellingen → Bedrijf** en worden in de Excel-werkmap opgeslagen (logo automatisch verkleind voor Excel). Datumregels tonen weekdag en jaar. De huidige maand toont zes regels, desgewenst alle regels. In **Projecten** staan totalen per maand en jaar. In **Declaraties** kunnen uren ook gedeeltelijk worden gedeclareerd.
 
 ## STACK-koppeling
 
-De website (GitHub Pages) is openbaar; gegevens, WebDAV-adres en wachtwoorden staan alleen in het privé-Excel-moederbestand en in beveiligde Cloudflare Worker-instellingen. De browser krijgt nooit het STACK-token. De app vraagt bij het verbinden om een **aparte toegangscode** en bewaart die niet permanent in de browser.
+De website (GitHub Pages) is openbaar; gegevens, WebDAV-adres en wachtwoorden staan alleen in het privé-Excel-moederbestand en in beveiligde Cloudflare Worker-instellingen. De browser krijgt nooit het STACK-token. De app vraagt bij het inloggen om een **aparte toegangscode** en bewaart die niet permanent in de browser.
 
 ### Eenmalig op STACK
 
@@ -57,16 +57,16 @@ De website (GitHub Pages) is openbaar; gegevens, WebDAV-adres en wachtwoorden st
 
    Optioneel: `ORS_API_KEY` als Secret voor rijroutes. Zet **nooit** een STACK-token in de repository, GitHub Pages, de URL of een screenshot.
 4. Activeer de Worker-route/het `workers.dev`-adres. De Worker bevat `GET /api/status` (alleen na inloggen), `GET/PUT /api/year/2026`, `GET/PUT /api/year/2027`, enzovoort. De Worker maakt de doelmap desgewenst bij de eerste opslag aan.
-5. Open de [website](https://mlemson.github.io/urenregistratie/), ga naar **Instellingen**, vul bij **Adres van de beveiligde koppeling** alleen het **`https://...workers.dev`**-adres in, en vul bij **Toegangscode** `APP_PASSWORD` in. Kies **Verbinden met STACK**.
+5. Open de [website](https://mlemson.github.io/urenregistratie/), vul op het inlogscherm bij **Adres beveiligde koppeling** alleen het **`https://...workers.dev`**-adres in, en vul bij **Toegangscode** `APP_PASSWORD` in. Kies **Inloggen**.
 
 ### Veilig bewaren
 
-- Bij elke wijziging slaat de app direct een lokale kopie op en probeert deze in de cloud te bewaren. Een waarschuwing is zichtbaar zolang STACK niet is bijgewerkt.
-- De toegangscode blijft alleen in de tijdelijke opslag van het huidige browsertabblad (sessionStorage). Na een paginaverversing wordt de STACK-verbinding automatisch hersteld; na sluiten van het tabblad kan opnieuw aanmelden nodig zijn. De code komt niet in lokale permanente opslag, Excel of GitHub.
-- Wijzigingen die je maakte terwijl STACK niet verbonden was, worden na opnieuw verbinden automatisch naar hetzelfde Excel-moederbestand gestuurd **als de online bestandsversie sinds de laatste succesvolle synchronisatie niet veranderd is**. Is die versie wél veranderd, dan stopt automatisch opslaan om gegevensverlies te voorkomen en blijft de lokale kopie staan.
-- De versiecontrole met ETag voorkomt een normale verouderde overschrijving op een andere computer. Gebruik de app niet gelijktijdig op meerdere apparaten; de server is geen volwaardig samenwerkingsplatform met rijvergrendeling.
-- Zijn er lokale wijzigingen voor een bestaand online jaarbestand, dan vraagt de app om eerst een Excel-back-up te downloaden en daarna pas de online versie in te laden. Bij een conflict download je eerst de lokale kopie.
-- Download minimaal maandelijks en bij afsluiting van het jaar een aparte back-up. STACK en lokale browseropslag zijn niet hetzelfde als een onafhankelijk back-uparchief.
+- STACK is altijd leidend bij elke login, ook na herladen van de browser. Er worden bij het inloggen geen lokale wijzigingen naar STACK gestuurd en een afwijkende lokale kopie blokkeert het inloggen niet.
+- Onverwerkte lokale gegevens worden indien mogelijk als afzonderlijke herstelkopie in deze browser bewaard. Na inloggen is de laatste herstelkopie voor het geselecteerde jaar te downloaden via **Instellingen → Bestand → Lokale herstelkopie downloaden**. Deze wordt nooit automatisch samengevoegd of geüpload.
+- Alleen ingelogde gebruikers kunnen gegevens bekijken en wijzigen. De toegangscode staat tijdelijk in het browsertabblad (sessionStorage), niet in GitHub of Excel. Het inlogscherm is een interfacebeveiliging; eerder lokaal bewaarde gegevens zijn niet versleuteld en kunnen via browseropslag toegankelijk zijn voor iemand met toegang tot het apparaat.
+- Wijzigingen tijdens een ingelogde sessie worden automatisch op STACK opgeslagen. De tekst onder 'Ingelogd' meldt of de opslag klaar is. Bij een echte ETag-versieconflict wordt niets overschreven; opnieuw inloggen laadt de actuele STACK-versie. Download indien nodig eerst een Excel-kopie.
+- Een nieuw jaar wordt vanuit het ingelogde huidige jaar rechtstreeks op STACK aangemaakt, met een voorwaarde dat het doelbestand nog niet bestaat.
+- Download minimaal maandelijks een aparte back-up. Gebruik de app niet gelijktijdig op meerdere apparaten; de server is geen volwaardig samenwerkingsplatform met rijvergrendeling.
 - Laat naast de aparte app-toegangscode bij voorkeur Cloudflare-rate-limiting of Cloudflare Access instellen.
 
 ### Testen

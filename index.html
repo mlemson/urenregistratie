@@ -15,13 +15,13 @@
 <body>
 <div class="app-shell">
   <header class="masthead">
-    <div class="brand"><span class="brand-icon" id="brandIcon">LA</span><div><strong id="brandName">Lemson Architecten</strong><small>Uren en kilometers</small></div></div>
+    <div class="brand"><span class="brand-icon" id="brandIcon">U</span><div><strong id="brandName">Urenregistratie</strong><small>Uren en kilometers</small></div></div>
     <div class="header-actions">
       <div class="year-choice"><label for="year">Jaar</label><select id="year"><option>2026</option><option>2027</option></select></div>
-      <button class="save-status" id="syncButton" type="button" title="Opslag beheren"><span id="syncDot" class="dot amber"></span><span id="syncLabel">Lokaal bewaard</span></button>
+      <div class="login-status-group"><button class="save-status" id="syncButton" type="button" title="Inloggen"><span id="syncDot" class="dot amber"></span><span id="syncLabel">Niet ingelogd</span></button><span id="syncDetail" class="sync-detail" hidden></span></div>
     </div>
   </header>
-  <nav class="tabs" aria-label="Hoofdnavigatie">
+  <nav class="tabs" aria-label="Hoofdnavigatie" hidden>
     <button class="tab active" data-page="agenda">Agenda</button>
     <button class="tab" data-page="registreren">Registreren</button>
     <button class="tab" data-page="projecten">Projecten</button>
@@ -31,7 +31,7 @@
   </nav>
   <div id="notice" class="notice" hidden></div>
   <main id="app"></main>
-  <footer class="footer"><span id="fileName">LA-Uren-Km-2026.xlsx</span><span id="footerHint">Gegevens staan op dit apparaat totdat STACK is verbonden.</span></footer>
+  <footer class="footer"><span id="fileName"></span><span id="footerHint"></span></footer>
 </div>
 <div id="dialogRoot"></div>
 </body>
