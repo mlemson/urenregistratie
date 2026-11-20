@@ -23,3 +23,70 @@ body.team-dark{color-scheme:dark;--bg:#18221e;--paper:#222e28;--text:#e1eae3;--m
 @media(max-width:650px){.module-switch{gap:10px}.module-timer .actions{flex-wrap:wrap}.module-timer strong{font-size:22px}}
 
 .team-dark :is(.agenda-aside,.agenda-aside-hint,.agenda-month-day){background:var(--paper);border-color:var(--line);color:var(--text)}.team-dark .agenda-month-day.other-month{background:#26342c;color:#92a297}.team-dark .agenda-month-day:hover{background:#304137}.team-dark .agenda-month-day>strong,.team-dark .agenda-visual-legend strong,.team-dark .agenda-detail p{color:#b1dfc8}.team-dark .agenda-visual-legend{color:var(--muted)}.team-dark .agenda-unscheduled-item{color:#263b36}.team-dark .agenda-selection-label{color:#d1eee0}.team-dark .agenda-selection-preview{background:#446e5ab0;border-color:#8dc6ab}.team-dark .agenda-day-track.outside-year{background-color:#26322b}.team-table .module-budget{min-width:160px}
+
+
+/* Dark mode: controls and interactive states share one readable palette.
+   Scoped to the team app; the light theme and standalone app are unchanged. */
+body.team-dark{
+ --dark-control:#283931;--dark-hover:#344b3e;--dark-selected:#3c5547;
+ --dark-outline:#739784;--dark-link:#a9ddc5;--dark-danger:#ffb3a9;
+ --pale:#2c4135;--amber:#edc783;--red:#ffb3a9;
+ scrollbar-color:#627e6e #222e28;
+}
+/* Include native controls outside .field, especially the calendar's filters. */
+body.team-dark :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),select,textarea){
+ color:var(--text);background:var(--dark-control);border-color:var(--dark-outline);color-scheme:dark;
+}
+body.team-dark :is(.agenda-filters,.team-filterbar,.team-toolbar,.header-actions,.field,.data-table) :is(select,input:not([type="checkbox"]):not([type="radio"]),textarea){
+ color:var(--text);background:var(--dark-control);border-color:var(--dark-outline);
+}
+body.team-dark select :is(option,optgroup){background:var(--dark-control);color:var(--text)}
+body.team-dark :is(input,textarea)::placeholder{color:#a5baad;opacity:1}
+body.team-dark :is(input,textarea):read-only:not([type="checkbox"]):not([type="radio"]){background:#304239;color:#c1d7c8}
+body.team-dark input:is([type="checkbox"],[type="radio"],[type="range"]){accent-color:#85bba0}
+body.team-dark input::file-selector-button{background:var(--dark-hover);color:var(--text);border:1px solid var(--dark-outline);border-radius:6px;padding:6px 9px;cursor:pointer}
+body.team-dark :is(input,select,textarea,button,a,summary):focus-visible{outline:2px solid #a6d6bd;outline-offset:2px}
+body.team-dark :is(.btn:not(.primary),.agenda-btn:not(.agenda-primary),.team-close,.save-status){background:var(--dark-control);color:var(--text);border-color:var(--dark-outline)}
+body.team-dark :is(.btn:not(.primary),.agenda-btn:not(.agenda-primary),.team-close,.save-status):hover:not(:disabled){background:var(--dark-hover);color:var(--text);border-color:#9ac0a9}
+body.team-dark :is(.btn.primary,.agenda-btn.agenda-primary){background:#28654f;color:#fff;border-color:#77a58d}
+body.team-dark :is(.btn.primary,.agenda-btn.agenda-primary):hover:not(:disabled){background:#36755c;color:#fff;border-color:#9ac0a9}
+body.team-dark .btn.danger,body.team-dark .btn.danger:hover{color:var(--dark-danger)}
+body.team-dark .btn.ghost{background:transparent;border-color:transparent;color:var(--dark-link)}
+body.team-dark .agenda-view-switch .agenda-btn{border-color:transparent}
+body.team-dark .agenda-btn.active:not(.agenda-primary){background:var(--dark-selected);color:#f0faf3;box-shadow:inset 0 0 0 1px #779a86}
+body.team-dark :is(a,.team-link,.link-btn){color:var(--dark-link)}
+body.team-dark :is(.team-code,.team-badge,.pill,.readonly-block,.route-result){background:#304239;color:var(--text);border-color:var(--line)}
+body.team-dark .pill.pending{background:#403626;color:#f4d59b}
+body.team-dark .pill.off{background:#35433b;color:var(--muted)}
+body.team-dark .data-table tr:hover td{background:var(--dark-hover);color:var(--text)}
+body.team-dark .data-table td small{color:var(--muted)}
+body.team-dark .data-table .empty-month{color:#9db2a4}
+body.team-dark .dash-project-status{color:var(--muted)}
+body.team-dark .dash-extra-toggle:hover,body.team-dark .team-mileage summary:hover{background:var(--dark-hover)}
+body.team-dark .team-mileage summary:before{color:var(--dark-link)}
+body.team-dark .module-switch input:focus-visible+.module-toggle{outline-color:#a6d6bd}
+body.team-dark .module-toggle{background:#687d70}
+body.team-dark .module-switch input:checked+.module-toggle{background:#40856a}
+body.team-dark .module-alert button{border-color:#a48c62;color:#ecd4a8}
+body.team-dark .module-alert button:hover{background:#51452f}
+body.team-dark .team-error{color:var(--dark-danger)}
+body.team-dark .agenda-unscheduled-day>div:first-child strong{color:var(--muted)}
+body.team-dark .agenda-slot:hover{background:#6da68a24}
+body.team-dark .agenda-slot::after{color:#b5dfc7}
+/* Individually coloured calendar cards keep their project accent, not a white fill. */
+body.team-dark :is(.agenda-event,.agenda-unscheduled-item,.agenda-month-item){
+ --dark-event-accent:color-mix(in srgb,var(--event-color) 40%,#e4f4eb);
+ --dark-event-fill:color-mix(in srgb,var(--event-color) 32%,#202c26);
+ background:#304239;background:var(--dark-event-fill,#304239);color:#f1f6f2;
+ border-color:var(--dark-event-accent,#a5c6b4);border-left-color:var(--dark-event-accent,#a5c6b4);color-scheme:dark;
+}
+body.team-dark :is(.agenda-event-time,.agenda-unscheduled-item em){color:#e1efe5}
+body.team-dark .agenda-event small{color:#e1efe5}
+body.team-dark .agenda-event:hover{filter:brightness(1.12)}
+body.team-dark .agenda-event-untimed{
+ background:repeating-linear-gradient(135deg,var(--dark-event-fill,#304239),var(--dark-event-fill,#304239) 12px,#202c26 12px,#202c26 15px);
+}
+body.team-dark .agenda-legend-dot{background:repeating-linear-gradient(135deg,#40584a,#40584a 5px,#202c26 5px,#202c26 7px)}
+body.team-dark .agenda-month-day.other-month{color:#a5baad}
+body.team-dark .agenda-month-day:disabled{opacity:.55}
+/* The test checks the palette in both modes, including hovered table rows. */
