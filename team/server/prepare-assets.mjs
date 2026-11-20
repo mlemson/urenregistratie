@@ -1,4 +1,4 @@
-import {mkdir,copyFile,writeFile,readFile} from 'node:fs/promises';
+import {mkdir,copyFile,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 const here=path.dirname(fileURLToPath(import.meta.url));
