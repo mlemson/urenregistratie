@@ -6,7 +6,7 @@ on:
     paths: ['team/**', '.github/workflows/test-team.yml']
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,6 +14,9 @@ jobs:
           node-version: '22'
       - run: node --check team/team.js && node --check team/server/worker.mjs
       - run: node --test team/tests/team.test.mjs
+      - name: Controleer extern postcode- en routeverkeer met openbare voorbeeldpostcodes
+        continue-on-error: true
+        run: node --input-type=module -e "import {routeDistance} from './team/server/worker.mjs'; const r=await routeDistance({from:'1012AB',to:'1012NX'},{}); if(!Number.isFinite(r.km)||r.km<0)throw Error('Geen geldige route'); console.log('Live probe:',r);"
       - run: npm install --prefix team --no-save --package-lock=false playwright@1.56.1
       - run: team/node_modules/.bin/playwright install --with-deps chromium
       - run: node --test team/tests/browser.test.mjs
