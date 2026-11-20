@@ -27,12 +27,12 @@ test('route fails with a specific network or provider error, never artificial ki
  const goodGeo=url=>{const p=new URL(url).searchParams.get('q');return Response.json({response:{docs:[{postcode:p,centroide_ll:p==='1234AB'?'POINT (5.1 52.1)':'POINT (5.5 52.5)'}]}});};
  try{
  globalThis.fetch=async()=>{throw Error('internal network details');};
- let r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,502);assert.match(r.data.error,/Postcodeservice/);assert.doesNotMatch(r.data.error,/internal network/);
+ let r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,502);assert.match(r.data.error,/Postcodeservices/);assert.doesNotMatch(r.data.error,/internal network/);
  globalThis.fetch=async url=>String(url).includes('api.pdok.nl')?goodGeo(url):Promise.reject(Error('network'));
  r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,502);assert.match(r.data.error,/Routeplanner/);
  globalThis.fetch=async url=>String(url).includes('api.pdok.nl')?goodGeo(url):new Response('',{status:429});
  r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,429);assert.match(r.data.error,/overbelast/);
- globalThis.fetch=async()=>Response.json({response:{docs:[{postcode:'9999ZZ',centroide_ll:'POINT (5.1 52.1)'}]}});
+ globalThis.fetch=async url=>String(url).includes('api.pdok.nl')?Response.json({response:{docs:[{postcode:'9999ZZ',centroide_ll:'POINT (5.1 52.1)'}]}}):Response.json([]);
  r=await f.request('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.status,422);assert.match(r.data.error,/niet gevonden/);
  }finally{globalThis.fetch=original;}
 });
@@ -45,4 +45,18 @@ test('optional ORS route provider uses server-side API key only for ORS',async()
  };
  try{const r=await f.ok('/route',a,{from:'1234AB',to:'5678CD'});assert.equal(r.km,30);assert.match(r.source,/OpenRouteService/);}
  finally{globalThis.fetch=original;}
+});
+
+test('independent postcode fallback survives complete PDOK outage and never uses an inexact postcode',async()=>{
+ const f=fixture(),a=await f.company('fallback-test'),original=globalThis.fetch,calls=[];
+ globalThis.fetch=async url=>{
+  calls.push(String(url));const u=new URL(url);
+  if(u.hostname==='api.pdok.nl')throw Error('PDOK unavailable');
+  if(u.hostname==='gratis-postcodedata.nl'){const p=u.pathname.split('/').at(-1);return Response.json([{country:'nl',postcode:p,lat:52.1,lon:p==='1234AB'?5.1:5.5}]);}
+  assert.equal(u.hostname,'routing.openstreetmap.de');return Response.json({code:'Ok',routes:[{distance:15000}]});
+ };
+ try{const r=await f.ok('/route',a,{from:'1234 AB',to:'5678 CD'});assert.equal(r.km,15);assert.match(r.geocoders,/Gratis Postcodedata/);assert.equal(calls.filter(u=>u.includes('gratis-postcodedata.nl')).length,2);
+ globalThis.fetch=async url=>{if(String(url).includes('api.pdok.nl'))throw Error('offline');return Response.json([{country:'nl',postcode:'9999ZZ',lat:52.1,lon:5.1}]);};
+ assert.equal((await f.request('/route',a,{from:'1234AB',to:'5678CD'})).status,422);
+ }finally{globalThis.fetch=original;}
 });

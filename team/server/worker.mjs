@@ -36,16 +36,18 @@ const davAuth=s=>'Basic '+btoa(String.fromCharCode(...enc.encode(s.user+':'+s.to
 
 function postcode(v){const p=text(v,20).toUpperCase().replace(/\s+/g,'');if(!/^[1-9][0-9]{3}[A-Z]{2}$/.test(p))fail(400,'Gebruik twee volledige Nederlandse postcodes.');return p;}
 async function routeJSON(url,name,headers={}){
+ const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),8000);
  let response;
- try{response=await fetch(String(url),{headers:{Accept:'application/json','User-Agent':'Urenregistratie-team-pilot/1.0 (mlemson.github.io/urenregistratie)',...headers},redirect:'error',signal:AbortSignal.timeout(8000)});}
- catch{fail(502,name+' is niet bereikbaar. Probeer later opnieuw of vul kilometers handmatig in.');}
+ try{response=await fetch(String(url),{headers:{Accept:'application/json','User-Agent':'Urenregistratie-team-pilot/1.0 (mlemson.github.io/urenregistratie)',...headers},redirect:'error',signal:controller.signal});}
+ catch(error){console.warn('Route upstream connection failed',name,error?.name||'Error');fail(502,name+' is niet bereikbaar. Probeer later opnieuw of vul kilometers handmatig in.');}
+ finally{clearTimeout(timeout);}
  if(response.status===429)fail(429,name+' is tijdelijk overbelast. Probeer later opnieuw of vul kilometers handmatig in.');
  if(!response.ok)fail(502,name+' niet beschikbaar (HTTP '+response.status+'). Vul eventueel kilometers handmatig in.');
  try{return await response.json();}catch{fail(502,name+' geeft een ongeldig antwoord. Vul eventueel kilometers handmatig in.');}
 }
-async function geo(p){
+async function geoPDOK(p){
  const url=new URL('https://api.pdok.nl/bzk/locatieserver/search/v3_1/free');
- url.searchParams.set('q',p);url.searchParams.set('fq','type:postcode');url.searchParams.set('rows','10');url.searchParams.set('fl','postcode,weergavenaam,centroide_ll');
+ url.searchParams.set('q',p);url.searchParams.set('fq','type:postcode');url.searchParams.set('rows','10');
  const j=await routeJSON(url,'Postcodeservice (PDOK)');
  const row=j?.response?.docs?.find(d=>String(d.postcode||d.weergavenaam||'').toUpperCase().replace(/\s+/g,'')===p);
  const m=String(row?.centroide_ll||'').match(/^POINT\s*\(([-\d.]+)\s+([-\d.]+)\)$/i);
@@ -54,11 +56,27 @@ async function geo(p){
  if(!Number.isFinite(lng)||!Number.isFinite(lat)||Math.abs(lng)>180||Math.abs(lat)>90)fail(502,'Postcodeservice geeft ongeldige coördinaten.');
  return lng+','+lat;
 }
+async function geo(p){
+ try{return {coord:await geoPDOK(p),source:'PDOK'};}
+ catch(primary){
+  // A definitive invalid format never triggers a fallback. The independent source
+  // can resolve outages and postcode lookup misses, but must match all six characters.
+  if(![422,429,502].includes(primary.status))throw primary;
+  let rows;
+  try{rows=await routeJSON('https://gratis-postcodedata.nl/api/postcode/'+p,'Reservepostcodeservice');}
+  catch(secondary){if(primary.status===422&&secondary.status===502)throw primary;fail(502,'Postcodeservices tijdelijk niet bereikbaar. Vul de kilometers handmatig in.');}
+  if(!Array.isArray(rows))fail(502,'Reservepostcodeservice geeft een ongeldig antwoord.');
+  const exact=rows.filter(r=>r?.country==='nl'&&String(r.postcode||'').toUpperCase().replace(/\s+/g,'')===p&&typeof r.lat==='number'&&typeof r.lon==='number'&&Number.isFinite(r.lat)&&Number.isFinite(r.lon)&&r.lat>=50&&r.lat<=54&&r.lon>=3&&r.lon<=8);
+  if(!exact.length){if(primary.status===422)throw primary;fail(422,'Postcode '+p+' niet gevonden bij de reservebron. Controleer de invoer.');}
+  const lat=exact.reduce((s,r)=>s+r.lat,0)/exact.length,lon=exact.reduce((s,r)=>s+r.lon,0)/exact.length;
+  return {coord:lon+','+lat,source:'Gratis Postcodedata'};
+ }
+}
 async function routeDistance(b,env){
  const from=postcode(b.from),to=postcode(b.to);
  // Resolve both postcodes even if identical, so unknown postcodes never pass validation.
- const [a,z]=await Promise.all([geo(from),geo(to)]);
- if(a===z)return {km:0,source:'PDOK (postcodecentra)'};
+ const [first,last]=await Promise.all([geo(from),geo(to)]);const a=first.coord,z=last.coord,geocoders=[...new Set([first.source,last.source])].join(' + ');
+ if(a===z)return {km:0,source:geocoders+' (postcodecentra)'};
  let meters,source;
  if(env.ORS_API_KEY){
   const url=new URL('https://api.openrouteservice.org/v2/directions/driving-car');
@@ -72,7 +90,7 @@ async function routeDistance(b,env){
   meters=data?.routes?.[0]?.distance;source='OSRM / OpenStreetMap (postcodecentra)';
  }
  if(!Number.isFinite(meters)||meters<0)fail(422,'Geen geldige autoroute gevonden. Vul de kilometers handmatig in.');
- return {km:Math.round(meters/10)/100,source};
+ return {km:Math.round(meters/10)/100,source,geocoders};
 }
 
 async function handler(req,env){const db=env.DB,p=new URL(req.url).pathname,m=req.method;const ip=req.headers.get('CF-Connecting-IP')||'unknown';
@@ -107,4 +125,4 @@ async function handler(req,env){const db=env.DB,p=new URL(req.url).pathname,m=re
  fail(404,'Niet gevonden');
 }
 export default {async fetch(req,env){const origin=req.headers.get('origin'),allowed=String(env.APP_ORIGIN||'').split(',').map(x=>x.trim());const h={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin','X-Content-Type-Options':'nosniff'};if(origin&&!allowed.includes(origin))return new Response(JSON.stringify({error:'Origin niet toegestaan'}),{status:403,headers:h});if(origin)Object.assign(h,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'});if(req.method==='OPTIONS')return new Response(null,{status:204,headers:h});try{if(!env.DB)fail(503,'D1 ontbreekt');return new Response(JSON.stringify(await handler(req,env)),{headers:h});}catch(e){const msg=String(e.message||'');const status=e.status||( /allocation exceeds|entry already billed|entry has billing history|UNIQUE constraint|FOREIGN KEY constraint/.test(msg)?409:500);return new Response(JSON.stringify({error:e.status?msg:status===409?'Gegevensconflict of reeds gedeclareerd.':'Serverfout'}),{status,headers:h});}}};
-export {registration,stackURL,hashPassword};
+export {registration,stackURL,hashPassword,routeDistance};

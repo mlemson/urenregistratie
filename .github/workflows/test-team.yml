@@ -13,4 +13,7 @@ jobs:
         with:
           node-version: '22'
       - run: node --check team/team.js && node --check team/server/worker.mjs
-      - run: node --test team/tests/*.test.mjs
+      - run: node --test team/tests/team.test.mjs
+      - run: npm install --prefix team --no-save --package-lock=false playwright@1.56.1
+      - run: team/node_modules/.bin/playwright install --with-deps chromium
+      - run: node --test team/tests/browser.test.mjs
