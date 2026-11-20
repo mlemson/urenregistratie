@@ -38,7 +38,7 @@ De website (GitHub Pages) is openbaar; gegevens, WebDAV-adres en wachtwoorden st
 ### Eenmalig op Cloudflare
 
 1. Log in bij [Cloudflare Workers & Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages) en zorg dat je het Workers-project kunt publiceren.
-2. Publiceer `server/worker.js` als Cloudflare Worker met de instellingen uit `server/wrangler.toml` (`APP_ORIGIN = https://mlemson.github.io`). Dat kan vanaf een lokale clone van de repository met:
+2. Publiceer `server/worker.js` als Cloudflare Worker met de instellingen uit `server/wrangler.toml` (`APP_ORIGIN = https://lemso.nl,https://mlemson.github.io`). Dat kan vanaf een lokale clone van de repository met:
 
    ```bash
    cd server
@@ -58,6 +58,8 @@ De website (GitHub Pages) is openbaar; gegevens, WebDAV-adres en wachtwoorden st
    Optioneel: `ORS_API_KEY` als Secret voor rijroutes. Zet **nooit** een STACK-token in de repository, GitHub Pages, de URL of een screenshot.
 4. Activeer de Worker-route/het `workers.dev`-adres. De Worker bevat `GET /api/status` (alleen na inloggen), `GET/PUT /api/year/2026`, `GET/PUT /api/year/2027`, enzovoort. De Worker maakt de doelmap desgewenst bij de eerste opslag aan.
 5. Open de [website](https://mlemson.github.io/urenregistratie/), vul op het inlogscherm bij **Adres beveiligde koppeling** alleen het **`https://...workers.dev`**-adres in, en vul bij **Toegangscode** `APP_PASSWORD` in. Kies **Inloggen**.
+
+De toegestane website-origins staan in `server/wrangler.toml` onder `APP_ORIGIN` als een kommagescheiden lijst. Voor deze website zijn dat `https://lemso.nl,https://mlemson.github.io`. Voeg bij een domeinwijziging alleen de exacte vertrouwde HTTPS-origin toe. Stel nooit `*` in. In Cloudflare moet dezelfde waarde bij **Runtime variables and secrets → Production** staan.
 
 ### Veilig bewaren
 

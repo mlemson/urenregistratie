@@ -5,7 +5,7 @@ workers_dev = true
 
 # Openbare configuratie: bevat geen klantgegevens of inloggegevens.
 [vars]
-APP_ORIGIN = "https://mlemson.github.io"
+APP_ORIGIN = "https://lemso.nl,https://mlemson.github.io"
 
 # Stel onderstaande waarden uitsluitend in als Cloudflare Worker secrets:
 # STACK_FOLDER_URL: volledige, privé WebDAV-map onder /remote.php/webdav/LA-Uren

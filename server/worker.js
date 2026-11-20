@@ -8,8 +8,9 @@ const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 function allowedOrigin(request, env) {
   const origin = request.headers.get('Origin') || '';
-  const configured = String(env.APP_ORIGIN || '').replace(/\/$/, '');
-  return origin && origin === configured ? origin : '';
+  // Explicit allowlist; never reflect arbitrary origins or use a wildcard.
+  const configured = String(env.APP_ORIGIN || '').split(',').map(value=>value.trim().replace(/\/$/, '')).filter(Boolean);
+  return origin && configured.includes(origin) ? origin : '';
 }
 function cors(request, env) {
   const origin = allowedOrigin(request, env);
@@ -106,8 +107,8 @@ async function routedKm(a,b,env) {
 export default {
   async fetch(request,env) {
     const ch=cors(request,env), origin=request.headers.get('Origin')||'';
-    if(request.method==='OPTIONS')return new Response(null,{status:204,headers:ch});
     if(origin&&!allowedOrigin(request,env))return respond(403,'Origin niet toegestaan',ch);
+    if(request.method==='OPTIONS')return new Response(null,{status:204,headers:ch});
     if(!env.APP_PASSWORD||!env.STACK_USER||!env.STACK_TOKEN||!env.STACK_FOLDER_URL)return respond(503,'Serverconfiguratie ontbreekt',ch);
     const token=request.headers.get('Authorization')||'';
     if(!token.startsWith('Bearer ')||!(await sameSecret(token.slice(7),env.APP_PASSWORD)))return respond(401,'Toegang geweigerd',{'WWW-Authenticate':'Bearer',...ch});
