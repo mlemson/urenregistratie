@@ -1,5 +1,10 @@
 # LA · Uren en kilometers
 
+De hoofdwebsite `https://mlemson.github.io/urenregistratie/` is de bestaande STACK-registratie, nu met dashboard en zijmenu. De gebruiker logt in met de bestaande toegangscode. Alle registraties, projecten en declaraties blijven in het Excel-moederbestand op STACK; er wordt **niet** overgeschakeld naar de afzonderlijke D1-testdatabase. De bestaande werkmap wordt alleen na aanmelden geladen en bij wijzigingen met een ETag-versiecontrole teruggeschreven. Een back-upbranch van de eerdere interface is `backup/stack-voor-dashboard-20261122`.
+
+Onder **Instellingen → Extra functies** zijn klantenbeheer, jaarbudgetten, waarschuwingen vanaf 80%, stopwatch, registraties herhalen en donkere modus optioneel. Uitschakelen verwijdert geen informatie. Nieuwe klanten worden in het tabblad `Klanten` van hetzelfde jaarbestand bewaard; projectbudgetten en klantverwijzingen zijn extra kolommen in `Projecten`. Bestaande Excel-bestanden zonder deze velden blijven leesbaar. Het budget in de STACK-versie geldt voor het **geselecteerde jaarbestand**, niet automatisch over meerdere jaren. Een eurobudget geeft een indicatie op basis van uren × huidig uurtarief, geen facturatie of gemaakte kosten. De stopwatch bewaart metingen alleen lokaal totdat je ze als urenregistratie bevestigt.
+
+
 ## Bedrijfsomgeving op hetzelfde GitHub-adres
 
 De oorspronkelijke Excel/STACK-registratie blijft op [`/urenregistratie/`](https://mlemson.github.io/urenregistratie/) staan. De nieuwe versie met medewerkeraccounts en een gedeeld projectdashboard is via [`/urenregistratie/bedrijfsomgeving/`](https://mlemson.github.io/urenregistratie/bedrijfsomgeving/) bereikbaar; een link in de kop van de oorspronkelijke app wijst ernaartoe. GitHub Pages host alleen de statische interface. De API wordt via het beveiligde Cloudflare Worker-adres aangeroepen en bewaart gegevens in D1; API-adressen zijn openbaar, maar de toegangsgegevens zijn nooit in deze repository opgenomen.
