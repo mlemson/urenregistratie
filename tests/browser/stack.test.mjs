@@ -55,7 +55,7 @@ test('existing STACK homepage: login, dashboard, project, agenda, optional modul
  await page.locator('[data-bill-hours="R1"]').waitFor();
  assert.equal(await page.locator('[data-bill-hours="R1"]').inputValue(),'2');
  assert.equal(await page.locator('[data-bill-check="R1"]').isChecked(),true);
- assert.match(await page.locator('.bill-summary').innerText(),/Geselecteerde uren\\s*2\\s*uur/);
+ assert.match(await page.locator('.bill-summary').innerText(),/Geselecteerde uren\s*2\s*uur/);
  assert.match(await page.locator('.bill-summary').innerText(),/200,00/);
  await page.locator('[data-bill-hours="R1"]').fill('1');
  await page.locator('[data-bill-hours="R1"]').press('Tab');
@@ -69,6 +69,7 @@ test('existing STACK homepage: login, dashboard, project, agenda, optional modul
  await page.locator('[data-bill-check="R1"]').check();
  assert.match(await page.locator('.bill-summary').innerText(),/200,00/);
  
+ await page.locator('[data-page="overzicht"]').click();
  await page.locator('#dashboardMonth').selectOption('0');await page.locator('.overview-project').first().click();
  await page.getByRole('heading',{name:'P1 · Nieuwbouw woonhuis'}).waitFor();
  await page.locator('[data-action="dashboard-project-new"]').click();
