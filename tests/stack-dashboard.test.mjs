@@ -72,9 +72,9 @@ test('declaratievoorstel telt voorgeselecteerde open uren direct mee',()=>{
  const screen=node('app').innerHTML;
  assert.match(screen,/data-bill-check="R1" checked/);
  assert.match(screen,/data-bill-hours="R1" value="2"/);
- assert.match(screen,/2 uur × €(?:&nbsp;|\\u00a0|\\s)*100,00/);
+ assert.match(screen,/2 uur × €(?:&nbsp;|\u00a0|\s)*100,00/);
  assert.match(screen,/Geselecteerde uren/);
- assert.match(screen,/€(?:&nbsp;|\\u00a0|\\s)*200,00/);
+ assert.match(screen,/€(?:&nbsp;|\u00a0|\s)*200,00/);
 });
 
 test('declaratievoorstel ondersteunt gedeeltelijk declareren en regels uitschakelen',()=>{
@@ -121,4 +121,19 @@ test('declaratievoorstel telt niet mee wat al eerder is toegewezen',()=>{
  assert.equal(h.app.billHours.R1,1.5);
  assert.equal(h.computedBill().hrs,1.5);
  assert.equal(h.computedBill().amount,150);
+});
+
+test('declaratiekenmerk en omschrijving blijven behouden bij aanpassen uren',()=>{
+ const {h,node}=setup();
+ h.app.db.Registraties[0].FacturatieStatus='open';
+ h.initializeBilling('P1');
+ h.app.billReference='2026-041';
+ h.app.billNote='Deels uitgevoerd';
+ h.app.billHours.R1=1;
+ h.renderBilling();
+ const html=node('app').innerHTML;
+ assert.match(html,/id="billReference"[^>]*value="2026-041"/);
+ assert.match(html,/id="billNote"[^>]*value="Deels uitgevoerd"/);
+ assert.match(html,/Geselecteerde uren/);
+ assert.equal(h.computedBill().amount,100);
 });
