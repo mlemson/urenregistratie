@@ -68,7 +68,16 @@ test('existing STACK homepage: login, dashboard, project, agenda, optional modul
  assert.equal(await page.locator('[data-bill-hours="R1"]').inputValue(),'0');
  await page.locator('[data-bill-check="R1"]').check();
  assert.match(await page.locator('.bill-summary').innerText(),/200,00/);
- 
+ await page.locator('.billing-ledger > summary').click();
+ assert.equal(await page.locator('.billing-ledger tbody tr').count(),1);
+ await page.locator('.billing-ledger [data-action="billing-entry-detail"]').first().click();
+ await page.getByText('Gekoppelde declaraties').waitFor();
+ await page.locator('#dialogRoot [data-action="close-modal"]').click();
+ await page.locator('[data-action="create-bill"]').click();
+ await page.locator('.billing-history-actions [data-action="billing-claim-detail"]').first().click();
+ await page.locator('#dialogRoot .billing-detail').getByText('Schets').waitFor();
+ assert.match(await page.locator('#dialogRoot').innerText(),/2026-041/);
+ await page.locator('#dialogRoot [data-action="close-modal"]').click();
  await page.locator('[data-page="overzicht"]').click();
  await page.locator('#dashboardMonth').selectOption('0');await page.locator('.overview-project').first().click();
  await page.getByRole('heading',{name:'P1 · Nieuwbouw woonhuis'}).waitFor();
