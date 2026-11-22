@@ -10,7 +10,7 @@ const workbook={
  Projecten:[{Projectnummer:'P1',Omschrijving:'Nieuwbouw woonhuis',Actueel:'J',Uurtarief:100,BudgetUren:2,BudgetEuro:250,KlantId:'C1'}],
  Klanten:[{Id:'C1',Naam:'Voorbeeldklant',Actueel:'J'}],
  Activiteiten:[{Naam:'1 ontwerp',SoortUren:'DIRECT'}],
- Registraties:[{Id:'R1',Datum:'2026-11-20',Projectnummer:'P1',Activiteit:'1 ontwerp',Omschrijving:'Schets',SoortUren:'DIRECT',Uren:3,Km:30,VanPostcode:'7462 MR',NaarPostcode:'7534 JK',Retour:'Ja',VroegerGedeclareerdeUren:1,Begintijd:'09:00',Eindtijd:'12:00'}],
+ Registraties:[{Id:'R1',Datum:'2026-11-20',Projectnummer:'P1',Activiteit:'1 ontwerp',Omschrijving:'Schets',SoortUren:'DIRECT',Uren:3,Km:30,VanPostcode:'7462 MR',NaarPostcode:'7534 JK',Retour:'Ja',VroegerGedeclareerdeUren:1,FacturatieStatus:'open',Begintijd:'09:00',Eindtijd:'12:00'}],
  Declaraties:[{Id:'D1',Projectnummer:'P1',Datum:'2026-11-20',Status:'verzonden',BedragExBtw:200}],
  Declaratieregels:[],HistorischeDeclaraties:[],
  Instellingen:[{Sleutel:'Bedrijfsnaam',Waarde:'Lemson Architecten'},{Sleutel:'StandaardUurtarief',Waarde:'100'},{Sleutel:'ModuleKlanten',Waarde:'1'},{Sleutel:'ModuleBudgetten',Waarde:'1'},{Sleutel:'ModuleWaarschuwingen',Waarde:'1'},{Sleutel:'ModuleDonker',Waarde:'1'},{Sleutel:'ModuleHerhalen',Waarde:'1'},{Sleutel:'ModuleStopwatch',Waarde:'1'}],
@@ -51,6 +51,24 @@ test('existing STACK homepage: login, dashboard, project, agenda, optional modul
  assert.match(await page.locator('#app').innerText(),/Budgetwaarschuwingen/);
  assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('stack-dark')),true);
  assert.equal(await page.locator('.stack-sidebar').evaluate(n=>getComputedStyle(n).display),'flex');
+ await page.locator('[data-page="declaraties"]').click();
+ await page.locator('[data-bill-hours="R1"]').waitFor();
+ assert.equal(await page.locator('[data-bill-hours="R1"]').inputValue(),'2');
+ assert.equal(await page.locator('[data-bill-check="R1"]').isChecked(),true);
+ assert.match(await page.locator('.bill-summary').innerText(),/Geselecteerde uren\\s*2\\s*uur/);
+ assert.match(await page.locator('.bill-summary').innerText(),/200,00/);
+ await page.locator('[data-bill-hours="R1"]').fill('1');
+ await page.locator('[data-bill-hours="R1"]').press('Tab');
+ assert.match(await page.locator('.bill-summary').innerText(),/100,00/);
+ await page.locator('#billReference').fill('2026-041');
+ await page.locator('#billNote').fill('Deels uitgevoerd');
+ await page.locator('[data-bill-check="R1"]').uncheck();
+ assert.equal(await page.locator('#billReference').inputValue(),'2026-041');
+ assert.equal(await page.locator('#billNote').inputValue(),'Deels uitgevoerd');
+ assert.equal(await page.locator('[data-bill-hours="R1"]').inputValue(),'0');
+ await page.locator('[data-bill-check="R1"]').check();
+ assert.match(await page.locator('.bill-summary').innerText(),/200,00/);
+ 
  await page.locator('#dashboardMonth').selectOption('0');await page.locator('.overview-project').first().click();
  await page.getByRole('heading',{name:'P1 · Nieuwbouw woonhuis'}).waitFor();
  await page.locator('[data-action="dashboard-project-new"]').click();
