@@ -13,6 +13,13 @@ jobs:
         with:
           node-version: '22'
       - run: node --check team/team.js && node --check team/server/worker.mjs
+      - name: Controleer publieke build en vernieuwde assets
+        run: |
+          node --check team/server/prepare-assets.mjs
+          node team/server/prepare-assets.mjs
+          grep -q 'application-build' team/server/public/team/index.html
+          grep -q 'team.css?v=' team/server/public/team/index.html
+          grep -q 'team.js?v=' team/server/public/team/index.html
       - run: node --test team/tests/team.test.mjs
       - name: Controleer extern postcode- en routeverkeer met openbare voorbeeldpostcodes
         continue-on-error: true
