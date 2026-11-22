@@ -71,7 +71,7 @@ test('existing STACK homepage: login, dashboard, project, agenda, optional modul
  await page.locator('.billing-ledger > summary').click();
  assert.equal(await page.locator('.billing-ledger tbody tr').count(),1);
  await page.locator('.billing-ledger [data-action="billing-entry-detail"]').first().click();
- await page.getByText('Gekoppelde declaraties').waitFor();
+ await page.getByRole('heading',{name:'Gekoppelde declaraties',exact:true}).waitFor();
  await page.locator('#dialogRoot [data-action="close-modal"]').click();
  await page.locator('[data-action="create-bill"]').click();
  await page.locator('.billing-history-actions [data-action="billing-claim-detail"]').first().click();
