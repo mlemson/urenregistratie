@@ -1,5 +1,12 @@
 # LA · Uren en kilometers
 
+## Bedrijfsomgeving op hetzelfde GitHub-adres
+
+De oorspronkelijke Excel/STACK-registratie blijft op [`/urenregistratie/`](https://mlemson.github.io/urenregistratie/) staan. De nieuwe versie met medewerkeraccounts en een gedeeld projectdashboard is via [`/urenregistratie/bedrijfsomgeving/`](https://mlemson.github.io/urenregistratie/bedrijfsomgeving/) bereikbaar; een link in de kop van de oorspronkelijke app wijst ernaartoe. GitHub Pages host alleen de statische interface. De API wordt via het beveiligde Cloudflare Worker-adres aangeroepen en bewaart gegevens in D1; API-adressen zijn openbaar, maar de toegangsgegevens zijn nooit in deze repository opgenomen.
+
+**Inloggen:** bestaande teamaccounts gebruiken hun bedrijfscode, e-mailadres en persoonlijke wachtwoord. Een STACK-toegangscode werkt hier niet. De URL van de team-Worker wordt automatisch ingevuld en niet getoond. De oorspronkelijke STACK-data en de gegevens uit de D1-*testdatabase* zijn nog niet gemigreerd of samengevoegd. Gebruik de bedrijfsomgeving nog niet als enige officiële administratie voordat er een afzonderlijke productieopslag, back-ups en een gecontroleerde migratie zijn ingesteld.
+
+
 Webapp voor Lemson Architecten. Geschikt voor actuele Windows- en macOS-browsers en voor GitHub Pages. De bestanden van klanten worden **niet** met de website gepubliceerd.
 
 ## Agenda

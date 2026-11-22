@@ -27,3 +27,8 @@
 .login-card h1{font-size:25px;letter-spacing:-.045em;line-height:1.2;margin:0 0 26px}
 .login-submit{width:100%;min-height:44px;margin-top:5px}
 @media(max-width:600px){.login-card{padding:22px;margin-top:18px}.login-status-group{max-width:135px}.sync-detail{font-size:9px}}
+
+/* Bestaande STACK-versie blijft behouden; nieuwe bedrijfsomgeving apart bereikbaar. */
+.edition-link{display:inline-flex;align-items:center;justify-content:center;min-height:37px;padding:8px 12px;border:1px solid #7baa99;background:#e6f2e9;border-radius:9px;color:#225c4c;text-decoration:none;font-size:12px;font-weight:680;white-space:nowrap}
+.edition-link:hover,.edition-link:focus-visible{background:#d2e6db;color:#17483a}
+@media(max-width:600px){.header-actions{flex-wrap:wrap;justify-content:flex-end;gap:6px}.edition-link{font-size:11px;padding:7px 10px}}
