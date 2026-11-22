@@ -85,3 +85,20 @@ test('optional schema can initialize an existing pilot without deleting rows',as
  f.sql.exec('DROP TABLE optional_schema_v1; DROP TABLE project_extras; DROP TABLE clients; DROP TABLE member_preferences; DROP TABLE company_modules;');
  const data=await f.ok('/data?year=2026',a);assert.equal(data.projects[0].name,'Existing');assert.equal(data.modules.clients,0);assert.equal((await f.ok('/data?year=2026',a)).preferences.dark,0);
 });
+
+
+test('GitHub Pages bedrijfsomgeving is explicitly CORS-allowed for secured API',async()=>{
+ const f=fixture(),original=f.env.APP_ORIGIN;
+ f.env.APP_ORIGIN=original+',https://mlemson.github.io';
+ const pageOrigin='https://mlemson.github.io';
+ const preflight=await worker.fetch(new Request('https://example.workers.dev/login',{method:'OPTIONS',headers:{Origin:pageOrigin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'authorization,content-type'}}),f.env);
+ assert.equal(preflight.status,204);
+ assert.equal(preflight.headers.get('Access-Control-Allow-Origin'),pageOrigin);
+ assert.match(preflight.headers.get('Access-Control-Allow-Headers'),/Authorization/);
+ assert.equal((await f.request('/data?year=2026','',undefined,pageOrigin)).status,401);
+ const token=await f.company('github-account');
+ const login=await f.request('/login','',{slug:'github-account',email:'owner@example.org',password:'abcdefghijklmnop'},pageOrigin);
+ assert.equal(login.status,200);
+ assert.equal((await f.request('/me',login.data.token,undefined,pageOrigin)).status,200);
+ assert.equal((await f.request('/me',token,undefined,'https://mlemson.github.io.evil.example')).status,403);
+});

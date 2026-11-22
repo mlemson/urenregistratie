@@ -63,3 +63,7 @@ De eigenaar schakelt klantenbeheer, projectbudgetten en budgetwaarschuwingen afz
 Bij een stopwatchregistratie met een kortere duur blijft een resterende volle minuut of meer beschikbaar voor een volgende registratie. Een stopwatch die langer dan 24 uur loopt kan in delen worden afgeboekt. De invoer blijft altijd ter bevestiging openstaan.
 
 Donkere modus gebruikt een gedeeld kleurenpalet voor invulvelden, native keuzelijsten, menu's, kalenderblokken, hover- en focusstatussen. De browsertest meet berekende achtergrondhelderheid en tekstcontrast in de echte interface (minimaal 4,5:1 voor de gecontroleerde actieve elementen), inclusief kalenderfilters in lichte en donkere modus.
+
+## GitHub Pages bedrijfsomgeving
+
+De nieuwe frontend wordt op `https://mlemson.github.io/urenregistratie/bedrijfsomgeving/` gepubliceerd, naast de bestaande zelfstandige STACK-frontend op `/urenregistratie/`. Hier wordt het team-API-adres automatisch ingevuld; gebruikers zien alleen bedrijfscode, e-mailadres en wachtwoord. De Worker-variabele `APP_ORIGIN` bevat daarom expliciet de Workers-origin en `https://mlemson.github.io` (zonder pad); geen wildcard. Er worden geen geheimen aan GitHub toegevoegd. De onderliggende D1-database is voorlopig nog de bestaande *testdatabase*; dit is dus nog geen migratie van de oorspronkelijke STACK-administratie en geen volledig losstaande productiebackend.
