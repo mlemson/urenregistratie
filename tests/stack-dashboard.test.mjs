@@ -12,11 +12,11 @@ function setup(){
  const node=id=>{if(!els.has(id))els.set(id,{id,value:'',hidden:false,innerHTML:'',textContent:'',dataset:{},classList:{add(){},remove(){},toggle(){}},style:{},appendChild(){},setAttribute(){},removeAttribute(){},querySelector(){return null;}});return els.get(id);};
  const fakeXLSX={utils:{book_new:()=>({sheets:[]}),json_to_sheet:(rows,opts)=>({rows,opts}),aoa_to_sheet:rows=>({rows}),book_append_sheet:(wb,sheet,name)=>wb.sheets.push({name,sheet}),sheet_to_json:s=>s.rows},read:()=>({SheetNames:['Projecten','Registraties','Activiteiten','Instellingen'],Sheets:{Projecten:{rows:[{Projectnummer:'P1',Omschrijving:'Bestaand'}]},Registraties:{rows:[{Id:'old',Datum:'2026-11-20',Projectnummer:'P1',Activiteit:'1 ontwerp',Uren:5}]},Activiteiten:{rows:[{Naam:'1 ontwerp',SoortUren:'DIRECT'}]},Instellingen:{rows:[{Sleutel:'StandaardUurtarief',Waarde:'100'}]}}}),write:(w)=>{fakeXLSX.last=w;return new Uint8Array([80,75]);}};
  const context={window:{localStorage:local,sessionStorage:session,LA_SEED:null,XLSX:fakeXLSX,addEventListener(){},LAAgenda:{render:()=>'<div class="agenda-mock">Agenda</div>'}},XLSX:fakeXLSX,document:{title:'',getElementById:node,querySelector:q=>q==='.tabs'?node('tabs'):null,querySelectorAll:()=>[],createElement:t=>({tagName:t,appendChild(){},classList:{add(){},remove(){}}}),body:{addEventListener(){},classList:{toggle:(name,on)=>on?classes.add(name):classes.delete(name)}}},URL,Response,Intl,Date,TextEncoder,Math,Number,String,Array,Object,JSON,RegExp,console,setTimeout:()=>1,clearTimeout(){},confirm:()=>true};
- const hook="globalThis.__testing={app,defaultDB,cleanDB,render,renderOverview,renderProjects,renderClients,renderAgenda,renderSettings,renderKilometers,renderBilling,initializeBilling,computedBill,availableEntries,overviewRows,overviewHours,overviewAvailable,overviewProjectCard,overviewWarnings,budgetStats,workbookBytes,parseWorkbook,setting,setSetting,moduleEnabled,repeatEntry,timerRead,timerWrite,timerPanel};openEntryEditor=(id,defaults)=>{globalThis.__testing.draft=defaults;};";
+ const hook="globalThis.__testing={app,defaultDB,cleanDB,render,renderOverview,renderProjects,renderClients,renderAgenda,renderSettings,renderKilometers,renderBilling,initializeBilling,computedBill,availableEntries,projectRegistrations,ledgerTotals,entryBillingStatus,claimedParts,claimRestorable,cancelConcept,reverseClaim,restoreClaim,billingClaimDetail,billingEntryDetail,billProjectOptions,reviewLegacy,saveReview,availableHours,allocations,overviewRows,overviewHours,overviewAvailable,overviewProjectCard,overviewWarnings,budgetStats,workbookBytes,parseWorkbook,setting,setSetting,moduleEnabled,repeatEntry,timerRead,timerWrite,timerPanel};openEntryEditor=(id,defaults)=>{globalThis.__testing.draft=defaults;};";
  vm.runInNewContext(source.replace(end,hook+'\n'+end),vm.createContext(context),{filename:'app.js'});
  const h=context.__testing;h.app.year=2026;h.app.month=11;h.app.dashboardMonth=11;h.app.cloud.connected=true;h.app.db=h.defaultDB(2026);
  h.app.db.Projecten.push({Projectnummer:'P1',Omschrijving:'Woonhuis',Actueel:'J',Uurtarief:100,BudgetUren:2,BudgetEuro:250});
- h.app.db.Registraties.push({Id:'R1',Datum:'2026-11-20',Projectnummer:'P1',Activiteit:'1 ontwerp',SoortUren:'DIRECT',Omschrijving:'Schets',Uren:3,Km:30,Begintijd:'09:00',Eindtijd:'12:00',VroegerGedeclareerdeUren:1});
+ h.app.db.Registraties.push({Id:'R1',Datum:'2026-11-20',Projectnummer:'P1',Activiteit:'1 ontwerp',SoortUren:'DIRECT',Omschrijving:'Schets',Uren:3,Km:30,FacturatieStatus:'open',Begintijd:'09:00',Eindtijd:'12:00',VroegerGedeclareerdeUren:1});
  h.app.db.Declaraties.push({Id:'D1',Status:'verzonden',Datum:'2026-11-20',BedragExBtw:200});
  return {h,node,classes,fakeXLSX,local};
 }
@@ -136,4 +136,104 @@ test('declaratiekenmerk en omschrijving blijven behouden bij aanpassen uren',()=
  assert.match(html,/id="billNote"[^>]*value="Deels uitgevoerd"/);
  assert.match(html,/Geselecteerde uren/);
  assert.equal(h.computedBill().amount,100);
+});
+
+test('het volledige overzicht bevat ook afgesloten, onduidelijke en al gedeclareerde uren',()=>{
+ const {h,node}=setup();
+ const r=h.app.db.Registraties[0];
+ r.FacturatieStatus='open';
+ h.app.db.Registraties.push(
+  {Id:'R2',Datum:'2026-09-01',Projectnummer:'P1',Activiteit:'Overleg',Uren:2,FacturatieStatus:'onbekend'},
+  {Id:'R3',Datum:'2026-09-02',Projectnummer:'P1',Activiteit:'Offerte',Uren:1,FacturatieStatus:'uitgesloten'},
+  {Id:'R4',Datum:'2026-09-03',Projectnummer:'P1',Activiteit:'Revisie',Uren:3,FacturatieStatus:'open'}
+ );
+ h.app.db.Declaraties.push({Id:'DC',Projectnummer:'P1',Status:'concept',Datum:'2026-11-21'});
+ h.app.db.Declaratieregels.push({Id:'LC',RegistratieId:'R4',DeclaratieId:'DC',Uren:3});
+ h.initializeBilling('P1');h.renderBilling();
+ const x=node('app').innerHTML;
+ assert.match(x,/Alle registraties van dit project/);
+ assert.match(x,/4 registraties · inclusief gedeclareerd/);
+ assert.match(x,/Te beoordelen oude uren/);
+ assert.match(x,/Offerte/);
+ assert.match(x,/Revisie/);
+ assert.match(x,/In concept/);
+ assert.match(x,/Declaratiehistorie/);
+ assert.equal(h.availableEntries('P1').length,1);
+ assert.equal(h.billProjectOptions().length,1);
+ assert.equal(h.ledgerTotals(h.projectRegistrations('P1')).review,1);
+ assert.equal(h.ledgerTotals(h.projectRegistrations('P1')).excluded,1);
+ const before=JSON.stringify(h.app.db);h.renderBilling();assert.equal(JSON.stringify(h.app.db),before);
+});
+test('onbekende status is niet automatisch beschikbaar, ook zonder eerder gedeclareerde uren',()=>{
+ const {h,node}=setup();
+ h.app.db.Registraties[0].FacturatieStatus='';
+ h.initializeBilling('P1');h.renderBilling();
+ assert.equal(h.availableEntries('P1').length,0);
+ assert.equal(h.computedBill().hrs,0);
+ assert.equal(h.ledgerTotals(h.projectRegistrations('P1')).review,1);
+ assert.match(node('app').innerHTML,/Te beoordelen/);
+ h.app.db.Registraties[0].FacturatieStatus='onbekend';
+ assert.equal(h.availableEntries('P1').length,0);
+});
+test('concept intrekken geeft de uren vrij met onveranderde historie en audit',()=>{
+ const {h}=setup();const row=h.app.db.Registraties[0];
+ row.FacturatieStatus='open';row.VroegerGedeclareerdeUren=0;
+ h.app.db.Declaraties.push({Id:'C1',Projectnummer:'P1',Datum:'2026-11-20',Status:'concept',BedragExBtw:300});
+ h.app.db.Declaratieregels.push({Id:'CL1',DeclaratieId:'C1',RegistratieId:'R1',Uren:3});
+ assert.equal(h.availableHours(row),0);
+ assert.equal(h.cancelConcept('C1'),true);
+ assert.equal(h.app.db.Declaraties.find(d=>d.Id==='C1').Status,'vervallen');
+ assert.equal(h.availableHours(row),3);
+ assert.equal(h.app.db.Declaratieregels.length,1);
+ assert.equal(h.app.db.Mutaties.some(m=>m.Type==='Declaratie'&&m.ObjectId==='C1'&&m.Actie==='Ingetrokken'),true);
+ assert.equal(h.claimRestorable(h.app.db.Declaraties.find(d=>d.Id==='C1')),true);
+ assert.equal(h.restoreClaim('C1'),true);
+ assert.equal(h.availableHours(row),0);
+ assert.equal(h.app.db.Declaraties.find(d=>d.Id==='C1').Status,'concept');
+});
+test('verzonden declaratie mag niet zonder reden worden teruggedraaid; historie blijft intact',()=>{
+ const {h}=setup();const row=h.app.db.Registraties[0];
+ row.FacturatieStatus='open';row.VroegerGedeclareerdeUren=0;
+ h.app.db.Declaraties.push({Id:'S1',Projectnummer:'P1',Datum:'2026-11-20',Status:'verzonden',Kenmerk:'26067',BedragExBtw:300});
+ h.app.db.Declaratieregels.push({Id:'SL1',DeclaratieId:'S1',RegistratieId:'R1',Uren:3});
+ assert.equal(h.availableHours(row),0);
+ assert.equal(h.reverseClaim('S1','nee'),false);
+ assert.equal(h.app.db.Declaraties.find(d=>d.Id==='S1').Status,'verzonden');
+ assert.equal(h.reverseClaim('S1','Extern gecrediteerd'),true);
+ assert.equal(h.availableHours(row),3);
+ assert.equal(h.app.db.Declaratieregels.length,1);
+ assert.equal(h.app.db.Mutaties.some(m=>m.ObjectId==='S1'&&m.Details.includes('Extern gecrediteerd')),true);
+ const restored=h.restoreClaim('S1');
+ assert.equal(restored,true);
+ assert.equal(h.availableHours(row),0);
+ assert.equal(h.app.db.Declaraties.find(d=>d.Id==='S1').Status,'verzonden');
+});
+test('herstel weigert een dubbel claim op uren die opnieuw zijn gedeclareerd',()=>{
+ const {h}=setup();const row=h.app.db.Registraties[0];
+ row.FacturatieStatus='open';row.VroegerGedeclareerdeUren=0;
+ h.app.db.Declaraties.push({Id:'C1',Projectnummer:'P1',Datum:'2026-11-20',Status:'vervallen',BedragExBtw:200});
+ h.app.db.Declaratieregels.push({Id:'CL1',DeclaratieId:'C1',RegistratieId:'R1',Uren:2});
+ h.app.db.Declaraties.push({Id:'C2',Projectnummer:'P1',Datum:'2026-11-21',Status:'concept',BedragExBtw:250});
+ h.app.db.Declaratieregels.push({Id:'CL2',DeclaratieId:'C2',RegistratieId:'R1',Uren:2});
+ assert.equal(h.availableHours(row),1);
+ assert.equal(h.claimRestorable(h.app.db.Declaraties.find(d=>d.Id==='C1')),false);
+ assert.equal(h.restoreClaim('C1'),false);
+ assert.equal(h.app.db.Declaraties.find(d=>d.Id==='C1').Status,'vervallen');
+});
+test('ook voltooide projecten blijven te bekijken en de koppeling met declaraties blijft bewaard',()=>{
+ const {h,node}=setup();
+ h.app.db.Projecten[0].Actueel='N';
+ h.app.db.Registraties[0].FacturatieStatus='open';
+ h.app.db.Declaraties.push({Id:'B1',Projectnummer:'P1',Status:'verzonden',Datum:'2026-11-21',BedragExBtw:200});
+ h.app.db.Declaratieregels.push({Id:'BL1',DeclaratieId:'B1',RegistratieId:'R1',Uren:2});
+ h.initializeBilling('P1');h.renderBilling();
+ assert.equal(h.billProjectOptions().length,1);
+ assert.equal(h.availableEntries('P1').length,0);
+ assert.match(node('app').innerHTML,/Gedeclareerd/);
+ assert.match(node('app').innerHTML,/Inzien/);
+ h.billingClaimDetail('B1');
+ assert.match(node('dialogRoot').innerHTML,/Schets/);
+ assert.match(node('dialogRoot').innerHTML,/2/);
+ h.billingEntryDetail('R1');
+ assert.match(node('dialogRoot').innerHTML,/Gekoppelde declaraties/);
 });
