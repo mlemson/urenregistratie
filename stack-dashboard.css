@@ -50,3 +50,23 @@ body.stack-dark :is(.agenda-times,.agenda-day-header span,.agenda-day-header sma
 body.stack-dark :is(.agenda-event,.agenda-unscheduled-item,.agenda-month-item){background:color-mix(in srgb,var(--event-color,#52876c) 30%,#23362c);color:#eef8ee;border-color:color-mix(in srgb,var(--event-color,#52876c) 55%,#bedec8)}
 body.stack-dark .agenda-event small{color:#dce9de}body.stack-dark .agenda-month-day.other-month{background:#29382c;color:#abc1ae}body.stack-dark .agenda-slot:hover{background:#698d7133}
 @media(max-width:750px){.option-settings{padding:15px}.budget-col{min-width:140px}.stopwatch-panel strong{font-size:24px}}
+
+/* Controleerbaar declaratieoverzicht (bestaand STACK-jaarbestand) */
+.billing-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin:0 0 18px}
+.billing-stats>div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+.billing-stats small{font-size:10px;color:var(--muted);display:block}
+.billing-stats strong{font-size:18px;color:var(--text);margin-top:4px;display:block;font-variant-numeric:tabular-nums}
+.billing-ledger{margin:15px 0;padding:0;overflow:hidden}
+.billing-ledger>summary{padding:17px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.billing-ledger>summary strong{font-size:14px}.billing-ledger>summary span{font-size:11px;color:var(--muted)}
+.billing-ledger-body{padding:0 16px 16px}.billing-ledger-table td:first-child{min-width:180px}.billing-ledger-table td small{display:block;color:var(--muted);font-size:10px;max-width:300px}
+.billing-status{font-size:11px;white-space:nowrap;color:var(--text)}
+.billing-detail h3{font-size:14px;margin:22px 0 10px}.billing-detail-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.billing-detail-summary>div{padding:12px;background:var(--pale);border-radius:8px;min-width:0}.billing-detail-summary small{display:block;font-size:11px;color:var(--muted)}
+.billing-detail-summary strong{font-size:15px;overflow-wrap:anywhere}.billing-log{font-size:11px;padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.billing-history-actions{gap:5px;justify-content:flex-end;flex-wrap:wrap;min-width:150px}
+.billing-alert{background:#fff5e7;border:1px solid #e6c9a1;color:#81521d;padding:12px 14px;border-radius:9px}
+body.stack-dark .billing-alert{background:#453923;border-color:#877044;color:#f1d1a0}
+body.stack-dark .billing-detail-summary>div{background:#314739}
+@media(max-width:1100px){.billing-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.billing-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.billing-ledger>summary{align-items:flex-start;flex-direction:column}.billing-detail-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.billing-history-actions{min-width:100px}}
