@@ -138,7 +138,7 @@ test('openbare handleiding en startpagina bevatten alle noodzakelijke stappen, z
  for(const name of ['Kopieer','Verwijderen','Declaraties','Inloggen','Bewaren','kilometers']){
   assert.match(guide,new RegExp(name,'i'));
  }
- assert.match(start,/installatiecode/i);
+ assert.match(start,/e-mailverificatie/i);
  assert.match(start,/testdatabase/i);
  assert.match(start,/eigen bedrijfsaccount/i);
  assert.match(css,/@media/);
@@ -160,7 +160,7 @@ test('Boekuur zelfstandige aanmelding toont verificatie en gebruikt juiste API z
     await route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':bookuur},body:JSON.stringify({enabled:false})});return;
    }
    if(u.origin===bookuur){
-    const rel=u.pathname.slice(1)||'index.html',file=path.resolve(folder,rel);
+    const rel=u.pathname.endsWith('/')?u.pathname.slice(1)+'index.html':u.pathname.slice(1),file=path.resolve(folder,rel);
     if(!file.startsWith(folder+path.sep)){await route.abort();return;}
     try{
      const bytes=readFileSync(file);
