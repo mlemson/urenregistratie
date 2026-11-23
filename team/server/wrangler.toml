@@ -7,6 +7,11 @@ keep_vars = true
 
 [vars]
 APP_ORIGIN = "https://urenregistratie-team-test.mauricelemson.workers.dev,https://mlemson.github.io,https://boekuur.nl,https://www.boekuur.nl"
+# No unverified new users on pilot database. Configure separately for production.
+PUBLIC_SIGNUP_ENABLED = "false"
+VERIFY_URL = "https://boekuur.nl/bedrijfsomgeving/verifieren.html"
+# Set MAIL_FROM to an address at a verified sending domain only after DNS verification.
+# Set RESEND_API_KEY as an encrypted Cloudflare Worker secret (never in this file).
 
 [assets]
 directory = "./public"
