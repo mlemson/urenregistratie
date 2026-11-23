@@ -24,3 +24,7 @@ CREATE TABLE IF NOT EXISTS clients(company_id TEXT NOT NULL REFERENCES companies
 CREATE TABLE IF NOT EXISTS project_extras(company_id TEXT NOT NULL, project TEXT NOT NULL, client_id TEXT, budget_minutes INTEGER NOT NULL DEFAULT 0 CHECK(budget_minutes>=0), budget_cents INTEGER NOT NULL DEFAULT 0 CHECK(budget_cents>=0), PRIMARY KEY(company_id,project), FOREIGN KEY(company_id,project) REFERENCES projects(company_id,code), FOREIGN KEY(company_id,client_id) REFERENCES clients(company_id,id));
 CREATE TABLE IF NOT EXISTS optional_schema_v1(id INTEGER PRIMARY KEY CHECK(id=1));
 INSERT OR IGNORE INTO optional_schema_v1(id) VALUES(1);
+
+-- Unverified registrations have no company/member access until confirmed.
+CREATE TABLE IF NOT EXISTS pending_signups(id TEXT PRIMARY KEY,slug TEXT NOT NULL UNIQUE,company TEXT NOT NULL,mode TEXT NOT NULL CHECK(mode IN ('solo','team')),email TEXT NOT NULL,name TEXT NOT NULL,password_hash TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,expires INTEGER NOT NULL,created INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS pending_signups_expiry ON pending_signups(expires);
