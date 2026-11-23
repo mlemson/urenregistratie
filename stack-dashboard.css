@@ -72,3 +72,13 @@ body.stack-dark .billing-alert{background:#453923;border-color:#877044;color:#f1
 body.stack-dark .billing-detail-summary>div{background:#314739}
 @media(max-width:1100px){.billing-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.billing-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.billing-ledger>summary{align-items:flex-start;flex-direction:column}.billing-detail-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.billing-history-actions{min-width:100px}}
+
+/* Boekuur: duidelijke, veilige registratieacties en helpkoppelingen */
+.bookuur-login-links{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin:15px 0 8px;font-size:12px}
+.bookuur-login-links a,.bookuur-help-inline a{color:#276e50;text-decoration:underline;text-underline-offset:3px}
+.bookuur-help-inline{margin:0 0 14px;font-size:12px;color:var(--muted)}
+body.stack-dark .bookuur-help-inline a{color:#bde4cd}
+.dialog-actions .btn.danger{margin-right:auto}
+.bookuur-header-help{font-size:12px;color:var(--muted);white-space:nowrap;text-decoration:none}
+.bookuur-header-help:hover{text-decoration:underline}
+@media(max-width:480px){.bookuur-header-help{display:none}}
