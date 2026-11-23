@@ -284,6 +284,7 @@ test('Kopieer opent een nieuwe registratie en neemt geen rit of tijd over',()=>{
  assert.equal(h.draft.Projectnummer,'P1');assert.equal(h.draft.Activiteit,'1 ontwerp');assert.equal(h.draft.Omschrijving,'Schets');
  assert.equal(h.draft.Uren,3);assert.equal(h.draft.Begintijd,undefined);assert.equal(h.draft.Km,undefined);
  assert.equal(h.app.db.Registraties.length,1,'Kopieer slaat niet zelfstandig op');
+ h.render();
  h.renderRegistration();
  assert.match(node('app').innerHTML,/data-action="repeat-entry"/);
  assert.match(node('app').innerHTML,/>Kopieer<\/button>/);
