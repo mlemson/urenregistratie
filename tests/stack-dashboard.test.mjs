@@ -12,7 +12,7 @@ function setup(){
  const node=id=>{if(!els.has(id))els.set(id,{id,value:'',hidden:false,innerHTML:'',textContent:'',dataset:{},classList:{add(){},remove(){},toggle(){}},style:{},appendChild(){},setAttribute(){},removeAttribute(){},querySelector(){return null;}});return els.get(id);};
  const fakeXLSX={utils:{book_new:()=>({sheets:[]}),json_to_sheet:(rows,opts)=>({rows,opts}),aoa_to_sheet:rows=>({rows}),book_append_sheet:(wb,sheet,name)=>wb.sheets.push({name,sheet}),sheet_to_json:s=>s.rows},read:()=>({SheetNames:['Projecten','Registraties','Activiteiten','Instellingen'],Sheets:{Projecten:{rows:[{Projectnummer:'P1',Omschrijving:'Bestaand'}]},Registraties:{rows:[{Id:'old',Datum:'2026-11-20',Projectnummer:'P1',Activiteit:'1 ontwerp',Uren:5}]},Activiteiten:{rows:[{Naam:'1 ontwerp',SoortUren:'DIRECT'}]},Instellingen:{rows:[{Sleutel:'StandaardUurtarief',Waarde:'100'}]}}}),write:(w)=>{fakeXLSX.last=w;return new Uint8Array([80,75]);}};
  const context={window:{localStorage:local,sessionStorage:session,LA_SEED:null,XLSX:fakeXLSX,addEventListener(){},LAAgenda:{render:()=>'<div class="agenda-mock">Agenda</div>'}},XLSX:fakeXLSX,document:{title:'',getElementById:node,querySelector:q=>q==='.tabs'?node('tabs'):null,querySelectorAll:()=>[],createElement:t=>({tagName:t,appendChild(){},classList:{add(){},remove(){}}}),body:{addEventListener(){},classList:{toggle:(name,on)=>on?classes.add(name):classes.delete(name)}}},URL,Response,Intl,Date,TextEncoder,Math,Number,String,Array,Object,JSON,RegExp,console,setTimeout:()=>1,clearTimeout(){},confirm:()=>true};
- const hook="globalThis.__testing={app,defaultDB,cleanDB,render,renderOverview,renderProjects,renderClients,renderAgenda,renderSettings,renderKilometers,overviewChart,renderBilling,initializeBilling,computedBill,availableEntries,projectRegistrations,ledgerTotals,entryBillingStatus,claimedParts,claimRestorable,cancelConcept,reverseClaim,restoreClaim,billingClaimDetail,billingEntryDetail,billProjectOptions,reviewLegacy,saveReview,availableHours,allocations,overviewRows,overviewHours,overviewAvailable,overviewProjectCard,overviewWarnings,budgetStats,workbookBytes,parseWorkbook,setting,setSetting,moduleEnabled,repeatEntry,timerRead,timerWrite,timerPanel};openEntryEditor=(id,defaults)=>{globalThis.__testing.draft=defaults;};";
+ const hook="globalThis.__testing={app,defaultDB,cleanDB,render,renderOverview,renderProjects,renderClients,renderAgenda,renderSettings,renderKilometers,overviewChart,renderBilling,initializeBilling,computedBill,availableEntries,projectRegistrations,ledgerTotals,entryBillingStatus,claimedParts,claimRestorable,cancelConcept,reverseClaim,restoreClaim,billingClaimDetail,billingEntryDetail,billProjectOptions,reviewLegacy,saveReview,availableHours,allocations,overviewRows,overviewHours,overviewAvailable,overviewProjectCard,overviewWarnings,budgetStats,workbookBytes,parseWorkbook,setting,setSetting,moduleEnabled,repeatEntry,canDeleteEntry,deleteEntry,timerRead,timerWrite,timerPanel};openEntryEditor=(id,defaults)=>{globalThis.__testing.draft=defaults;};";
  vm.runInNewContext(source.replace(end,hook+'\n'+end),vm.createContext(context),{filename:'app.js'});
  const h=context.__testing;h.app.year=2026;h.app.month=11;h.app.dashboardMonth=11;h.app.cloud.connected=true;h.app.db=h.defaultDB(2026);
  h.app.db.Projecten.push({Projectnummer:'P1',Omschrijving:'Woonhuis',Actueel:'J',Uurtarief:100,BudgetUren:2,BudgetEuro:250});
@@ -252,4 +252,39 @@ test('hele jaar wist visuele maandselectie, ook na een tweede klik',()=>{
  assert.equal((markup.match(/class="overview-chart-month selected"/g)||[]).length,0);
  assert.equal((markup.match(/aria-pressed="true"/g)||[]).length,0);
  assert.match(markup,/data-month="12"[^>]*class="overview-chart-month " aria-pressed="false"/);
+});
+
+test('testregistratie wordt via Verwijderen uit de urenlijst gehaald maar blijft in mutatielog',()=>{
+ const {h,node}=setup();const r=h.app.db.Registraties[0];
+ r.VroegerGedeclareerdeUren=0;
+ assert.equal(h.canDeleteEntry(r),true);
+ assert.equal(h.deleteEntry('R1'),true);
+ assert.equal(h.app.db.Registraties.length,0);
+ const log=h.app.db.Mutaties.find(m=>m.Type==='Registratie'&&m.Actie==='Verwijderd');
+ assert.ok(log);
+ assert.match(log.Details,/"Omschrijving":"Schets"/);
+ assert.match(node('notice').textContent,/verwijderd/);
+});
+test('een registratie met historisch declaratiegebruik blijft beschermd, ook na intrekken',()=>{
+ const {h,node}=setup();const r=h.app.db.Registraties[0];
+ assert.equal(h.canDeleteEntry(r),false);
+ assert.equal(h.deleteEntry('R1'),false);
+ r.VroegerGedeclareerdeUren=0;
+ h.app.db.Declaratieregels.push({Id:'L1',DeclaratieId:'D1',RegistratieId:'R1',Uren:1});
+ h.app.db.Declaraties[0].Status='vervallen';
+ assert.equal(h.canDeleteEntry(r),false);
+ assert.equal(h.deleteEntry('R1'),false);
+ assert.equal(h.app.db.Registraties.length,1);
+ assert.equal(h.app.db.Mutaties.some(m=>m.Actie==='Verwijderd'),false);
+ assert.match(node('notice').textContent,/declaratiehistorie/);
+});
+test('Kopieer opent een nieuwe registratie en neemt geen rit of tijd over',()=>{
+ const {h,node}=setup();
+ h.setSetting('ModuleHerhalen','1');h.repeatEntry('R1');
+ assert.equal(h.draft.Projectnummer,'P1');assert.equal(h.draft.Activiteit,'1 ontwerp');assert.equal(h.draft.Omschrijving,'Schets');
+ assert.equal(h.draft.Uren,3);assert.equal(h.draft.Begintijd,undefined);assert.equal(h.draft.Km,undefined);
+ assert.equal(h.app.db.Registraties.length,1,'Kopieer slaat niet zelfstandig op');
+ h.renderRegistration();
+ assert.match(node('app').innerHTML,/data-action="repeat-entry"/);
+ assert.match(node('app').innerHTML,/>Kopieer<\/button>/);
 });
