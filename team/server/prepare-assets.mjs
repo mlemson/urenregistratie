@@ -10,7 +10,7 @@ await mkdir(path.join(out,'team'),{recursive:true});
 for(const file of ['style.css','agenda.css','agenda.js','agenda-drag.js']){
  await copyFile(path.join(here,'../..',file),path.join(out,file));
 }
-for(const file of ['index.html','team.css','team.js']){
+for(const file of ['index.html','team.css','team.js','verifieren.html']){
  await copyFile(path.join(here,'..',file),path.join(out,'team',file));
 }
 
