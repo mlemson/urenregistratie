@@ -101,6 +101,24 @@ await page.locator('.overview-project').first().click();
  await page.locator('#agendaProjectFilter').waitFor();
  const bg=await page.locator('#agendaProjectFilter').evaluate(n=>getComputedStyle(n).backgroundColor);
  assert.notEqual(bg,'rgb(255, 255, 255)','dark agenda filters must not stay white');
+ await page.locator('[data-page="registreren"]').click();
+ await page.locator('[data-action="edit-entry"]').first().click();
+ await page.locator('#dialogRoot [data-action="delete-entry"]').waitFor();
+ await page.locator('#dialogRoot [data-action="delete-entry"]').click();
+ assert.match(await page.locator('#notice').innerText(),/declaratiehistorie/);
+ await page.locator('#dialogRoot [data-action="repeat-entry"]').click();
+ await page.getByRole('heading',{name:'Registratie toevoegen'}).waitFor();
+ assert.equal(await page.locator('#editStartTime').inputValue(),'');
+ assert.equal(await page.locator('#editHours').inputValue(),'3');
+ await page.locator('#dialogRoot [data-action="save-entry-edit"]').click();
+ assert.match(await page.locator('#notice').innerText(),/Registratie toegevoegd/);
+ await page.locator('[data-page="registreren"]').click();
+ assert.equal(await page.locator('.entry').count(),2);
+ await page.locator('.entry [data-action="edit-entry"]').first().click();
+ page.once('dialog',d=>d.accept());
+ await page.locator('#dialogRoot [data-action="delete-entry"]').click();
+ assert.match(await page.locator('#notice').innerText(),/Registratie verwijderd/);
+ assert.equal(await page.locator('.entry').count(),1);
  await page.locator('[data-page="instellingen"]').click();
  assert.equal(await page.locator('#moduleClients').isChecked(),true);
  assert.equal(await page.locator('#moduleDark').isChecked(),true);
@@ -111,4 +129,18 @@ await page.locator('.overview-project').first().click();
  assert.equal(await page.locator('body').evaluate(n=>n.scrollWidth>window.innerWidth+2),false,'No horizontal page overflow on iPad-size/mobile viewport');
  assert.deepEqual(errors,[]);
  }finally{await browser.close();}
+});
+
+test('openbare handleiding en startpagina bevatten alle noodzakelijke stappen, zonder inloggegevens',()=>{
+ const guide=readFileSync(path.join(folder,'handleiding.html'),'utf8');
+ const start=readFileSync(path.join(folder,'starten.html'),'utf8');
+ const css=readFileSync(path.join(folder,'boekuur-hulp.css'),'utf8');
+ for(const name of ['Kopieer','Verwijderen','Declaraties','Inloggen','Bewaren','kilometers']){
+  assert.match(guide,new RegExp(name,'i'));
+ }
+ assert.match(start,/installatiecode/i);
+ assert.match(start,/testdatabase/i);
+ assert.match(start,/eigen account/i);
+ assert.match(css,/@media/);
+ assert.doesNotMatch(guide+start,/STACK_TOKEN|APP_PASSWORD|mauricelemson@hotmail\.com/);
 });
