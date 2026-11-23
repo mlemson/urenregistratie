@@ -7,7 +7,7 @@ if(!globalThis.crypto)globalThis.crypto=webcrypto;
 const origin='https://mlemson.github.io';
 const base='https://testaccount.stack.storage/remote.php/webdav/LA-Uren';
 const env={
- APP_ORIGIN:`https://lemso.nl, ${origin}`, STACK_FOLDER_URL:base,
+ APP_ORIGIN:`https://lemso.nl, ${origin}, https://boekuur.nl`, STACK_FOLDER_URL:base,
  STACK_USER:'voorbeeldgebruiker', STACK_TOKEN:'geheim', APP_PASSWORD:'een-lange-testcode'
 };
 const xlsx=new Uint8Array([0x50,0x4b,0x03,0x04,1,2,3,4,5,6]);
@@ -154,7 +154,7 @@ test('malformed, wildcard, and weak If-Match values do not write',async()=>{
 test('custom domain and original Pages origin support authenticated CORS reads and conditional writes',async()=>{
  const mock=mockWebdav({folderInitially:true});globalThis.fetch=mock.fetchMock;
  mock.makeFile(2026);
- for(const site of ['https://lemso.nl','https://mlemson.github.io']){
+ for(const site of ['https://lemso.nl','https://mlemson.github.io','https://boekuur.nl']){
   const preflight=await run('OPTIONS','/api/year/2026',{originValue:site,authorization:'',headers:{'Access-Control-Request-Method':'PUT','Access-Control-Request-Headers':'authorization,content-type,if-match'}});
   assert.equal(preflight.status,204);
   assert.equal(preflight.headers.get('Access-Control-Allow-Origin'),site);
@@ -172,7 +172,7 @@ test('custom domain and original Pages origin support authenticated CORS reads a
 });
 test('unknown origins and lookalike domains are still rejected',async()=>{
  const mock=mockWebdav();globalThis.fetch=mock.fetchMock;
- for(const site of ['https://lemso.nl.evil.example','http://lemso.nl','https://evil.example','null']){
+ for(const site of ['https://lemso.nl.evil.example','http://lemso.nl','http://boekuur.nl','https://boekuur.nl.evil.example','https://evil.example','null']){
   for(const method of ['OPTIONS','GET']){
    const r=await run(method,'/api/year/2026',{originValue:site});
    assert.equal(r.status,403);

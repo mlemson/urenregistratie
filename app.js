@@ -227,6 +227,12 @@ function renderAgenda(){
  });
 }
 function renderLogin(){
+ const pageLocation=globalThis.location;
+ if(pageLocation?.protocol==='http:'&&!['localhost','127.0.0.1'].includes(pageLocation.hostname)){
+  const secureURL='https://'+pageLocation.host+pageLocation.pathname+pageLocation.search;
+  $('app').innerHTML='<section class="card login-card"><h1>Beveiligde verbinding nodig</h1><p>Deze website is via HTTP geopend. Voor het inloggen en opslaan van uren moet de website via HTTPS bereikbaar zijn.</p><a class="btn primary" href="'+E(secureURL)+'">Website beveiligd openen</a><p class="subnote">Lukt dit niet? Controleer het SSL-certificaat en schakel HTTPS in bij de domeininstellingen. Voer je toegangscode hier niet in.</p></section>';
+  return;
+ }
  $('app').innerHTML=`<section class="card login-card"><h1>Inloggen</h1><form id="stackLoginForm"><div class="field"><label for="cloudUrl">Adres beveiligde koppeling</label><input id="cloudUrl" type="url" value="${E(app.cloud.url)}" placeholder="https://…workers.dev" required></div><div class="field"><label for="cloudPassword">Toegangscode</label><input id="cloudPassword" type="password" placeholder="Toegangscode" autocomplete="current-password"></div><button class="btn primary login-submit" type="submit" ${cloudConnecting?'disabled':''}>${cloudConnecting?'Inloggen…':'Inloggen'}</button></form></section>`;
 }
 function render(){document.body.classList.toggle('stack-authed',app.cloud.connected);document.body.classList.toggle('stack-dark',app.cloud.connected&&moduleEnabled('Donker'));const clientsTab=$('clientsTab');if(clientsTab)clientsTab.hidden=!app.cloud.connected||!moduleEnabled('Klanten');renderBrand();const tabs=document.querySelector('.tabs');if(tabs)tabs.hidden=!app.cloud.connected;if(!app.cloud.connected){renderLogin();return;}if(!app.wizard)initWizard();switch(app.page){case 'agenda':renderAgenda();break;case 'kilometers':renderKilometers();break;case 'klanten':renderClients();break;case 'registreren':renderRegistration();break;case 'projecten':renderProjects();break;case 'declaraties':renderBilling();break;case 'overzicht':renderOverview();break;case 'maandoverzicht':renderMonthOverview();break;case 'instellingen':renderSettings();showLogoPreview();break;}}
