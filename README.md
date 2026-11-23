@@ -132,3 +132,15 @@ Declaraties behouden hun regels ook na intrekken of terugdraaien. Een concept in
 ### Eigen domein boekuur.nl
 
 `boekuur.nl` staat als `CNAME` van de GitHub Pages-site geconfigureerd. De browser mag alleen via `https://boekuur.nl` op de beveiligde STACK-koppeling inloggen; een adres op `http://boekuur.nl` wordt expliciet geweigerd, omdat HTTP geen veilige omgeving is voor een toegangscode. Controleer in GitHub → Settings → Pages of het certificaat actief is en zet **Enforce HTTPS** aan. Zorg dat DNS bij deze Pages-site hoort en eventuele proxy/doorverwijzing geen terugschakeling naar HTTP veroorzaakt. Controleer bij Cloudflare Worker → Settings → Variables and Secrets → Production dat `APP_ORIGIN` de exacte waarde `https://boekuur.nl` bevat; voeg `http://boekuur.nl` niet toe. Na een verandering van `server/wrangler.toml` moet de Worker daadwerkelijk opnieuw gepubliceerd worden om gewijzigde configuratie over te nemen.
+
+## Gebruik door andere zelfstandigen en bedrijven
+
+- De oorspronkelijke site op `https://boekuur.nl/` en `https://mlemson.github.io/urenregistratie/` bevat een **bestaande STACK-administratie** en de daarbij horende toegangscode. Deel deze code niet met nieuwe gebruikers of andere bedrijven.
+- De separate [bedrijfsomgeving](https://boekuur.nl/bedrijfsomgeving/) heeft bedrijfscodes, persoonlijke accounts, gescheiden bedrijven en uitnodigingen. De backend draait **voorlopig op een D1-testdatabase**. Nieuwe bedrijven hebben een installatiecode van de beheerder nodig. Een publiek zelfaanmeldproces, productieopslag, herstel van wachtwoorden en back-ups zijn nog niet productierijp. Gebruik de pilot daarom niet voor echte klantgegevens.
+- De publieke pagina [Starten met Boekuur](https://boekuur.nl/starten.html) geeft gebruikers de juiste route. De [korte handleiding](https://boekuur.nl/handleiding.html) legt de bediening uit zonder inlog- of klantgegevens te publiceren.
+
+## Registraties verwijderen en kopiëren
+
+Ga naar **Registreren → Wijzig → Verwijderen** om een foutieve of testregistratie te verwijderen. Alleen registraties zonder historisch gedeclareerde uren én zonder koppeling met een declaratie kunnen worden verwijderd. Na bevestiging verdwijnen hun uren en kilometers uit de totalen. Een volledige kopie van de verwijderde registratie blijft in het Excel-tabblad `Mutaties` bewaard. Ook regels die naar vervallen declaraties verwijzen blijven beschermd.
+
+Activeer **Instellingen → Extra functies → Registratie kopiëren** en kies **Opties bewaren**. Daarna staat de knop **Kopieer** naast registraties op de pagina Registreren en **Kopieer als nieuw** in het bewerkvenster. Project, activiteit, omschrijving en uren worden overgenomen; datum is vandaag als het geselecteerde jaar het huidige jaar is. Tijden, postcodes en kilometers worden **niet** gekopieerd. Pas na **Bewaren** wordt het een extra registratie.
