@@ -12,7 +12,7 @@ function setup(){
  const node=id=>{if(!els.has(id))els.set(id,{id,value:'',hidden:false,innerHTML:'',textContent:'',dataset:{},classList:{add(){},remove(){},toggle(){}},style:{},appendChild(){},setAttribute(){},removeAttribute(){},querySelector(){return null;}});return els.get(id);};
  const fakeXLSX={utils:{book_new:()=>({sheets:[]}),json_to_sheet:(rows,opts)=>({rows,opts}),aoa_to_sheet:rows=>({rows}),book_append_sheet:(wb,sheet,name)=>wb.sheets.push({name,sheet}),sheet_to_json:s=>s.rows},read:()=>({SheetNames:['Projecten','Registraties','Activiteiten','Instellingen'],Sheets:{Projecten:{rows:[{Projectnummer:'P1',Omschrijving:'Bestaand'}]},Registraties:{rows:[{Id:'old',Datum:'2026-11-20',Projectnummer:'P1',Activiteit:'1 ontwerp',Uren:5}]},Activiteiten:{rows:[{Naam:'1 ontwerp',SoortUren:'DIRECT'}]},Instellingen:{rows:[{Sleutel:'StandaardUurtarief',Waarde:'100'}]}}}),write:(w)=>{fakeXLSX.last=w;return new Uint8Array([80,75]);}};
  const context={window:{localStorage:local,sessionStorage:session,LA_SEED:null,XLSX:fakeXLSX,addEventListener(){},LAAgenda:{render:()=>'<div class="agenda-mock">Agenda</div>'}},XLSX:fakeXLSX,document:{title:'',getElementById:node,querySelector:q=>q==='.tabs'?node('tabs'):null,querySelectorAll:()=>[],createElement:t=>({tagName:t,appendChild(){},classList:{add(){},remove(){}}}),body:{addEventListener(){},classList:{toggle:(name,on)=>on?classes.add(name):classes.delete(name)}}},URL,Response,Intl,Date,TextEncoder,Math,Number,String,Array,Object,JSON,RegExp,console,setTimeout:()=>1,clearTimeout(){},confirm:()=>true};
- const hook="globalThis.__testing={app,defaultDB,cleanDB,render,renderOverview,renderProjects,renderClients,renderAgenda,renderSettings,renderKilometers,renderBilling,initializeBilling,computedBill,availableEntries,projectRegistrations,ledgerTotals,entryBillingStatus,claimedParts,claimRestorable,cancelConcept,reverseClaim,restoreClaim,billingClaimDetail,billingEntryDetail,billProjectOptions,reviewLegacy,saveReview,availableHours,allocations,overviewRows,overviewHours,overviewAvailable,overviewProjectCard,overviewWarnings,budgetStats,workbookBytes,parseWorkbook,setting,setSetting,moduleEnabled,repeatEntry,timerRead,timerWrite,timerPanel};openEntryEditor=(id,defaults)=>{globalThis.__testing.draft=defaults;};";
+ const hook="globalThis.__testing={app,defaultDB,cleanDB,render,renderOverview,renderProjects,renderClients,renderAgenda,renderSettings,renderKilometers,overviewChart,renderBilling,initializeBilling,computedBill,availableEntries,projectRegistrations,ledgerTotals,entryBillingStatus,claimedParts,claimRestorable,cancelConcept,reverseClaim,restoreClaim,billingClaimDetail,billingEntryDetail,billProjectOptions,reviewLegacy,saveReview,availableHours,allocations,overviewRows,overviewHours,overviewAvailable,overviewProjectCard,overviewWarnings,budgetStats,workbookBytes,parseWorkbook,setting,setSetting,moduleEnabled,repeatEntry,timerRead,timerWrite,timerPanel};openEntryEditor=(id,defaults)=>{globalThis.__testing.draft=defaults;};";
  vm.runInNewContext(source.replace(end,hook+'\n'+end),vm.createContext(context),{filename:'app.js'});
  const h=context.__testing;h.app.year=2026;h.app.month=11;h.app.dashboardMonth=11;h.app.cloud.connected=true;h.app.db=h.defaultDB(2026);
  h.app.db.Projecten.push({Projectnummer:'P1',Omschrijving:'Woonhuis',Actueel:'J',Uurtarief:100,BudgetUren:2,BudgetEuro:250});
@@ -236,4 +236,20 @@ test('ook voltooide projecten blijven te bekijken en de koppeling met declaratie
  assert.match(node('dialogRoot').innerHTML,/2/);
  h.billingEntryDetail('R1');
  assert.match(node('dialogRoot').innerHTML,/Gekoppelde declaraties/);
+});
+
+test('hele jaar wist visuele maandselectie, ook na een tweede klik',()=>{
+ const {h,node}=setup();
+ h.app.dashboardMonth=12;
+ h.renderOverview();
+ let markup=node('app').innerHTML;
+ assert.match(markup,/data-month="12"[^>]*class="overview-chart-month selected" aria-pressed="true"/);
+ assert.match(markup,/<option value="12" selected>/);
+ h.app.dashboardMonth=0;
+ h.renderOverview();
+ markup=node('app').innerHTML;
+ assert.match(markup,/<option value="0" selected>Hele jaar<\/option>/);
+ assert.equal((markup.match(/class="overview-chart-month selected"/g)||[]).length,0);
+ assert.equal((markup.match(/aria-pressed="true"/g)||[]).length,0);
+ assert.match(markup,/data-month="12"[^>]*class="overview-chart-month " aria-pressed="false"/);
 });

@@ -79,7 +79,19 @@ test('existing STACK homepage: login, dashboard, project, agenda, optional modul
  assert.match(await page.locator('#dialogRoot').innerText(),/2026-041/);
  await page.locator('#dialogRoot [data-action="close-modal"]').click();
  await page.locator('[data-page="overzicht"]').click();
- await page.locator('#dashboardMonth').selectOption('0');await page.locator('.overview-project').first().click();
+ await page.locator('#dashboardMonth').selectOption('0');
+ // Browser regression: clicking a selected month again must leave no highlight,
+ // even while the pointer is still hovering over the last clicked month.
+ const december=page.locator('[data-action="dashboard-month"][data-month="12"]');
+ await december.click();
+ assert.equal(await december.getAttribute('aria-pressed'),'true');
+ await december.click();
+ assert.equal(await page.locator('#dashboardMonth').inputValue(),'0');
+ assert.equal(await page.locator('.overview-chart-month.selected').count(),0);
+ assert.equal(await december.getAttribute('aria-pressed'),'false');
+ await december.hover();
+ assert.equal(await december.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+await page.locator('.overview-project').first().click();
  await page.getByRole('heading',{name:'P1 · Nieuwbouw woonhuis'}).waitFor();
  await page.locator('[data-action="dashboard-project-new"]').click();
  await page.locator('#editProject').waitFor();
