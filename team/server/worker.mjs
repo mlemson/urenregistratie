@@ -25,7 +25,7 @@ const manager=u=>u.role==='owner'||u.role==='admin';
 function requireManager(u){if(!manager(u))fail(403,'Geen toegang');}
 function requireOwner(u){if(u.role!=='owner')fail(403,'Alleen de eigenaar');}
 async function body(req){if(Number(req.headers.get('content-length'))>65536)fail(413,'Te groot');const raw=await req.text();if(raw.length>65536)fail(413,'Te groot');try{const b=JSON.parse(raw);if(!b||typeof b!=='object'||Array.isArray(b))throw Error();return b;}catch{fail(400,'Ongeldige JSON');}}
-async function limit(db,key){const now=Math.floor(Date.now()/900000);const r=await one(db,`INSERT INTO login_limits(key,window,count) VALUES(?,?,1) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END,window=excluded.window RETURNING count`,key,now);if(r.count>12)fail(429,'Te veel pogingen. Probeer later opnieuw.');}
+async function limit(db,key,maxAttempts=12){const now=Math.floor(Date.now()/900000);const r=await one(db,`INSERT INTO login_limits(key,window,count) VALUES(?,?,1) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END,window=excluded.window RETURNING count`,key,now);if(r.count>maxAttempts)fail(429,'Te veel pogingen. Probeer later opnieuw.');}
 async function session(db,req){const token=req.headers.get('authorization')?.match(/^Bearer ([0-9a-f]{64})$/)?.[1];if(!token)fail(401,'Log in');const u=await one(db,`SELECT m.id,m.company_id,m.email,m.name,m.role,c.slug,c.name AS company,c.mode,c.rate,c.logo FROM sessions s JOIN members m ON m.id=s.member_id JOIN companies c ON c.id=m.company_id WHERE s.token=? AND s.expires>? AND m.active=1`,await digest(token),Date.now());if(!u)fail(401,'Sessie verlopen');return u;}
 async function issue(db,id){const token=random();await run(db,'INSERT INTO sessions(token,member_id,expires) VALUES(?,?,?)',await digest(token),id,Date.now()+12*3600000);return {token};}
 async function aes(env){if(!env.STORAGE_KEY)fail(503,'Opslagsleutel ontbreekt');let bytes;try{bytes=Uint8Array.from(atob(env.STORAGE_KEY),c=>c.charCodeAt(0));}catch{fail(503,'Ongeldige opslagsleutel');}if(bytes.length!==32)fail(503,'Ongeldige opslagsleutel');return crypto.subtle.importKey('raw',bytes,'AES-GCM',false,['encrypt','decrypt']);}
@@ -105,7 +105,78 @@ async function modulesFor(db,c){return await one(db,'SELECT clients,budgets,warn
 async function prefsFor(db,u){return await one(db,'SELECT stopwatch,repeat_entry,dark FROM member_preferences WHERE member_id=?',u.id)||{stopwatch:0,repeat_entry:0,dark:0};}
 function flag(b,k){if(typeof b[k]!=='boolean')fail(400,'Ongeldige instelling');return b[k]?1:0;}
 
+
+const VERIFY_VALID_MS=24*3600000;
+function publicRegistrationEnabled(env){return env.PUBLIC_SIGNUP_ENABLED==='true'&&!!env.RESEND_API_KEY&&!!env.MAIL_FROM&&!!env.VERIFY_URL;}
+async function ensureRegistration(db){
+ await run(db,"CREATE TABLE IF NOT EXISTS pending_signups (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, company TEXT NOT NULL, mode TEXT NOT NULL CHECK(mode IN ('solo','team')), email TEXT NOT NULL, name TEXT NOT NULL, password_hash TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, expires INTEGER NOT NULL, created INTEGER NOT NULL)");
+ await run(db,'CREATE INDEX IF NOT EXISTS pending_signups_expiry ON pending_signups(expires)');
+}
+function verificationURL(env,token){
+ let u;try{u=new URL(env.VERIFY_URL);}catch{fail(503,'Verificatieadres ontbreekt');}
+ if(u.protocol!=='https:'||!['boekuur.nl','www.boekuur.nl'].includes(u.hostname)||u.username||u.password||u.search||u.hash||u.port||u.pathname!=='/bedrijfsomgeving/verifieren.html')fail(503,'Verificatieadres niet veilig ingesteld');
+ return u.href+'#token='+token;
+}
+async function sendVerificationMail(env,recipient,link){
+ if(!publicRegistrationEnabled(env))fail(503,'Aanmelden is nog niet geactiveerd. Probeer later opnieuw.');
+ if(!/^([^\r\n<>]+ <)?[^\s<>@\r\n]+@boekuur\.nl>?$/.test(env.MAIL_FROM))fail(503,'Afzenderadres is niet goed ingesteld');
+ let response;try{
+  response=await fetch('https://api.resend.com/emails',{
+   method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},
+   body:JSON.stringify({from:env.MAIL_FROM,to:[recipient],subject:'Bevestig je e-mailadres voor Boekuur',text:'Bevestig je nieuwe Boekuur-account via onderstaande link. Deze link blijft 24 uur geldig.\n\n'+link+'\n\nHeb je dit niet aangevraagd? Dan kun je dit bericht negeren.'}),
+   redirect:'error',signal:AbortSignal.timeout(10000)
+  });
+ }catch{fail(502,'De verificatiemail kon niet worden verzonden. Probeer later opnieuw.');}
+ if(!response.ok){console.error('Boekuur verificatiemail: maildienst HTTP',response.status);fail(502,'De verificatiemail kon niet worden verzonden. Controleer de mailconfiguratie.');}
+}
+async function createPendingSignup(db,env,req,ip){
+ if(!publicRegistrationEnabled(env))fail(503,'Nieuwe accounts zijn nog niet beschikbaar: e-mailverificatie moet worden geactiveerd.');
+ const b=await body(req),code=slug(b.slug),company=text(b.company,120),name=text(b.name,120),mail=email(b.email),mode=b.mode==='team'?'team':'solo';
+ const pw=password(b.password);
+ await limit(db,'signup-ip:'+await digest(ip),4);
+ await limit(db,'signup-email:'+await digest(mail),3);
+ await limit(db,'signup-slug:'+await digest(code),4);
+ await ensureRegistration(db);
+ const now=Date.now();
+ await run(db,'DELETE FROM pending_signups WHERE expires<=?',now);
+ if(await one(db,'SELECT id FROM companies WHERE slug=?',code))fail(409,'Deze bedrijfscode is al in gebruik.');
+ const prior=await one(db,'SELECT email FROM pending_signups WHERE slug=?',code);
+ if(prior&&prior.email!==mail)fail(409,'Deze bedrijfscode is tijdelijk gereserveerd.');
+ const raw=random(),token_hash=await digest(raw),pwd=await hashPassword(pw);
+ await run(db,'INSERT INTO pending_signups(id,slug,company,mode,email,name,password_hash,token_hash,expires,created) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET company=excluded.company,mode=excluded.mode,name=excluded.name,password_hash=excluded.password_hash,token_hash=excluded.token_hash,expires=excluded.expires WHERE pending_signups.email=excluded.email',
+  uuid(),code,company,mode,mail,name,pwd,token_hash,now+VERIFY_VALID_MS,now);
+ await sendVerificationMail(env,mail,verificationURL(env,raw));
+ return {ok:true,message:'Controleer je e-mail. Je ontvangt een bevestigingslink die 24 uur geldig is.'};
+}
+async function verifyPendingSignup(db,env,req,ip){
+ await limit(db,'verify-ip:'+await digest(ip),12);
+ const b=await body(req),token=text(b.token,64);
+ if(!/^[a-f0-9]{64}$/.test(token))fail(400,'Ongeldige bevestigingslink.');
+ await ensureRegistration(db);
+ const hash=await digest(token),now=Date.now();
+ const pending=await one(db,'SELECT * FROM pending_signups WHERE token_hash=? AND expires>?',hash,now);
+ if(!pending)fail(400,'Deze bevestigingslink is ongeldig, verlopen of al gebruikt.');
+ const companyId=uuid(),ownerId=uuid();
+ try{
+  const result=await db.batch([
+   stmt(db,'INSERT INTO companies(id,slug,name,mode) SELECT ?,slug,company,mode FROM pending_signups WHERE token_hash=? AND expires>?',companyId,hash,now),
+   stmt(db,"INSERT INTO members(id,company_id,email,name,role,password) SELECT ?,?,email,name,'owner',password_hash FROM pending_signups WHERE token_hash=? AND expires>?",ownerId,companyId,hash,now),
+   ...ACTIVITIES.map(a=>stmt(db,'INSERT INTO activities(company_id,name,kind) VALUES(?,?,?)',companyId,a,/Administratie|Scholing|Acquisitie/.test(a)?'INDIRECT':'DIRECT')),
+   stmt(db,'DELETE FROM pending_signups WHERE token_hash=?',hash)
+  ]);
+  if(!result[0].meta.changes)fail(400,'Deze link is niet meer geldig.');
+ }catch(err){
+  if(err.status)throw err;
+  if(/UNIQUE constraint/.test(String(err.message||'')))fail(409,'Deze bedrijfscode is inmiddels bezet.');
+  throw err;
+ }
+ return {ok:true,slug:pending.slug};
+}
+
 async function handler(req,env){const db=env.DB,p=new URL(req.url).pathname,m=req.method;const ip=req.headers.get('CF-Connecting-IP')||'unknown';
+ if(p==='/signup/status'&&m==='GET')return {enabled:publicRegistrationEnabled(env)};
+ if(p==='/signup'&&m==='POST')return createPendingSignup(db,env,req,ip);
+ if(p==='/signup/verify'&&m==='POST')return verifyPendingSignup(db,env,req,ip);
  if(p==='/setup'&&m==='POST'){
   await limit(db,'setup:'+ip);const b=await body(req);if(!env.SETUP_KEY||env.SETUP_KEY.length<32||typeof b.key!=='string'||!same(await digest(b.key),await digest(env.SETUP_KEY)))fail(403,'Setup niet toegestaan');
   const id=uuid(),member=uuid(),code=slug(b.slug),name=text(b.company),mail=email(b.email),display=text(b.name),mode=b.mode==='team'?'team':'solo';const pw=await hashPassword(password(b.password));
