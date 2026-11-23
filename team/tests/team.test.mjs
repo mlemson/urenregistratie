@@ -102,3 +102,82 @@ test('GitHub Pages bedrijfsomgeving is explicitly CORS-allowed for secured API',
  assert.equal((await f.request('/me',login.data.token,undefined,pageOrigin)).status,200);
  assert.equal((await f.request('/me',token,undefined,'https://mlemson.github.io.evil.example')).status,403);
 });
+
+test('zelfregistratie blijft uitgeschakeld zolang mailverificatie niet is ingericht',async()=>{
+ const f=fixture();assert.deepEqual(await f.ok('/signup/status',''),{enabled:false});
+ const result=await f.request('/signup','',{slug:'nieuwe-zaak',company:'Nieuwe Zaak',mode:'solo',name:'Eigenaar',email:'eigenaar@example.org',password:'lang-veilig-wachtwoord'});
+ assert.equal(result.status,503);
+ assert.equal(f.sql.prepare('SELECT count(*) AS count FROM companies').get().count,0);
+});
+test('e-mailverificatie activeert pas daarna een geïsoleerd bedrijf met eigenaar',async()=>{
+ const f=fixture(),original=globalThis.fetch,emails=[];
+ f.env.PUBLIC_SIGNUP_ENABLED='true';f.env.RESEND_API_KEY='test-resend-token';f.env.MAIL_FROM='Boekuur <accounts@boekuur.nl>';f.env.VERIFY_URL='https://boekuur.nl/bedrijfsomgeving/verifieren.html';
+ globalThis.fetch=async(url,options)=>{
+  assert.equal(String(url),'https://api.resend.com/emails');
+  assert.equal(options.headers.Authorization,'Bearer test-resend-token');
+  emails.push(JSON.parse(options.body));
+  return Response.json({id:'send-1'});
+ };
+ try{
+  assert.deepEqual(await f.ok('/signup/status',''),{enabled:true});
+  const application={slug:'studio-abc',company:'Studio ABC',mode:'team',name:'Eerste eigenaar',email:'owner@studio.example',password:'veilig-wachtwoord-12345'};
+  const r=await f.ok('/signup','',application);
+  assert.equal(r.ok,true);assert.equal(emails.length,1);
+  assert.deepEqual(emails[0].to,['owner@studio.example']);
+  assert.equal(f.sql.prepare('SELECT count(*) AS count FROM companies').get().count,0);
+  assert.equal((await f.request('/login','',{slug:application.slug,email:application.email,password:application.password})).status,401);
+  const raw=emails[0].text.match(/#token=([a-f0-9]{64})/)[1];
+  const pending=f.sql.prepare('SELECT * FROM pending_signups WHERE slug=?').get(application.slug);
+  assert.ok(pending);assert.notEqual(pending.token_hash,raw);assert.ok(!pending.password_hash.includes(application.password));
+  assert.equal((await f.request('/signup/verify','',{token:'0'.repeat(64)})).status,400);
+  assert.equal((await f.ok('/signup/verify','',{token:raw})).slug,application.slug);
+  assert.equal((await f.request('/signup/verify','',{token:raw})).status,400);
+  assert.equal(f.sql.prepare('SELECT count(*) AS count FROM pending_signups').get().count,0);
+  const login=await f.ok('/login','',{slug:application.slug,email:application.email,password:application.password});
+  assert.ok(login.token);const owner=await f.ok('/me',login.token);
+  assert.equal(owner.company,'Studio ABC');assert.equal(owner.role,'owner');assert.equal(owner.mode,'team');
+  await f.ok('/projects',login.token,{code:'ABC-1',name:'Privéproject'});
+  await f.ok('/entries',login.token,{project:'ABC-1',activity:'1 ontwerp',date:'2026-11-23',start:'',end:'',minutes:60});
+  assert.equal((await f.ok('/data?year=2026',login.token)).entries.length,1);
+  // A second verified company cannot see or mutate the first company's data.
+  await f.ok('/signup','',{...application,slug:'andere-zaak',company:'Andere Zaak',email:'andere@example.org'});
+  const raw2=emails[1].text.match(/#token=([a-f0-9]{64})/)[1];
+  await f.ok('/signup/verify','',{token:raw2});
+  const other=(await f.ok('/login','',{slug:'andere-zaak',email:'andere@example.org',password:application.password})).token;
+  const otherData=await f.ok('/data?year=2026',other);
+  assert.equal(otherData.entries.length,0);assert.equal(otherData.projects.length,0);
+  assert.equal((await f.request('/projects',other,{code:'ABC-1',name:'Fake duplicate'})).status,200);
+  assert.equal((await f.ok('/data?year=2026',login.token)).projects[0].name,'Privéproject');
+  assert.equal((await f.request('/signup','',{...application,slug:'studio-abc'})).status,409);
+  assert.equal((await f.request('/signup/verify','',{token:raw},'https://kwaad.example')).status,403);
+ }finally{globalThis.fetch=original;}
+});
+test('verlopen en opnieuw aangevraagde verificatielinks zijn niet bruikbaar',async()=>{
+ const f=fixture(),original=globalThis.fetch,emails=[];
+ Object.assign(f.env,{PUBLIC_SIGNUP_ENABLED:'true',RESEND_API_KEY:'test',MAIL_FROM:'accounts@boekuur.nl',VERIFY_URL:'https://boekuur.nl/bedrijfsomgeving/verifieren.html'});
+ globalThis.fetch=async(url,options)=>{emails.push(JSON.parse(options.body));return Response.json({id:'ok'});};
+ try{
+  const a={slug:'nieuw-bedrijf',company:'Nieuw bedrijf',mode:'solo',name:'Eigenaar',email:'me@example.org',password:'lang-veilig-wachtwoord'};
+  await f.ok('/signup','',a);
+  const first=emails[0].text.match(/#token=([a-f0-9]{64})/)[1];
+  await f.ok('/signup','',a);
+  const second=emails[1].text.match(/#token=([a-f0-9]{64})/)[1];
+  assert.equal((await f.request('/signup/verify','',{token:first})).status,400);
+  assert.equal((await f.request('/signup','',{...a,email:'ander@example.org'})).status,409);
+  f.sql.prepare('UPDATE pending_signups SET expires=? WHERE slug=?').run(Date.now()-1,a.slug);
+  assert.equal((await f.request('/signup/verify','',{token:second})).status,400);
+  assert.equal(f.sql.prepare('SELECT count(*) AS count FROM companies').get().count,0);
+ }finally{globalThis.fetch=original;}
+});
+test('niet werkende maildienst kan nooit stilzwijgend een actief account aanmaken',async()=>{
+ const f=fixture(),original=globalThis.fetch;
+ Object.assign(f.env,{PUBLIC_SIGNUP_ENABLED:'true',RESEND_API_KEY:'test',MAIL_FROM:'accounts@boekuur.nl',VERIFY_URL:'https://boekuur.nl/bedrijfsomgeving/verifieren.html'});
+ globalThis.fetch=async()=>new Response('unverified domain',{status:403});
+ try{
+  const result=await f.request('/signup','',{slug:'niet-gemaild',company:'Niet gemaild',mode:'solo',name:'Owner',email:'owner@example.org',password:'lang-veilig-wachtwoord'});
+  assert.equal(result.status,502);
+  assert.equal(f.sql.prepare('SELECT count(*) AS count FROM members').get().count,0);
+  assert.equal(f.sql.prepare('SELECT count(*) AS count FROM companies').get().count,0);
+  assert.equal(f.sql.prepare('SELECT count(*) AS count FROM pending_signups').get().count,1);
+ }finally{globalThis.fetch=original;}
+});
