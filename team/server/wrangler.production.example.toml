@@ -1,0 +1,22 @@
+# Voorbeeld uitsluitend; niet deployen voor de productie-D1-ID is ingevuld.
+name = "boekuur-api"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+workers_dev = true
+preview_urls = false
+keep_vars = true
+
+[vars]
+APP_ORIGIN = "https://boekuur.nl,https://www.boekuur.nl"
+PUBLIC_SIGNUP_ENABLED = "false"
+VERIFY_URL = "https://boekuur.nl/bedrijfsomgeving/verifieren.html"
+MAIL_FROM = "Boekuur <accounts@boekuur.nl>"
+
+[assets]
+directory = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "boekuur-production"
+database_id = "REPLACE_WITH_NEW_PRODUCTION_DATABASE_ID"
+migrations_dir = "migrations"
