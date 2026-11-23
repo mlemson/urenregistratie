@@ -6,7 +6,7 @@ preview_urls = false
 keep_vars = true
 
 [vars]
-APP_ORIGIN = "https://urenregistratie-team-test.mauricelemson.workers.dev,https://mlemson.github.io"
+APP_ORIGIN = "https://urenregistratie-team-test.mauricelemson.workers.dev,https://mlemson.github.io,https://boekuur.nl,https://www.boekuur.nl"
 
 [assets]
 directory = "./public"
