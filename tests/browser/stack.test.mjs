@@ -140,7 +140,7 @@ test('openbare handleiding en startpagina bevatten alle noodzakelijke stappen, z
  }
  assert.match(start,/installatiecode/i);
  assert.match(start,/testdatabase/i);
- assert.match(start,/eigen account/i);
+ assert.match(start,/eigen bedrijfsaccount/i);
  assert.match(css,/@media/);
  assert.doesNotMatch(guide+start,/STACK_TOKEN|APP_PASSWORD|mauricelemson@hotmail\.com/);
 });
