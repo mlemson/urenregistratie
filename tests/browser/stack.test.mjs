@@ -144,3 +144,43 @@ test('openbare handleiding en startpagina bevatten alle noodzakelijke stappen, z
  assert.match(css,/@media/);
  assert.doesNotMatch(guide+start,/STACK_TOKEN|APP_PASSWORD|mauricelemson@hotmail\.com/);
 });
+
+test('Boekuur zelfstandige aanmelding toont verificatie en gebruikt juiste API zonder gedeelde STACK-login',async()=>{
+ const browser=await chromium.launch({headless:true});
+ const page=await browser.newPage({viewport:{width:1080,height:800}});
+ const errors=[];page.on('pageerror',err=>errors.push(err.message));
+ const bookuur='https://boekuur.nl',api='https://urenregistratie-team-test.mauricelemson.workers.dev';
+ try{
+  await page.route('**/*',async route=>{
+   const u=new URL(route.request().url());
+   if(u.hostname==='cdn.sheetjs.com'){
+    await route.fulfill({status:200,contentType:'application/javascript',body:'window.XLSX={};'});return;
+   }
+   if(u.origin===api){
+    await route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':bookuur},body:JSON.stringify({enabled:false})});return;
+   }
+   if(u.origin===bookuur){
+    const rel=u.pathname.slice(1)||'index.html',file=path.resolve(folder,rel);
+    if(!file.startsWith(folder+path.sep)){await route.abort();return;}
+    try{
+     const bytes=readFileSync(file);
+     await route.fulfill({status:200,contentType:rel.endsWith('.js')?'application/javascript':rel.endsWith('.css')?'text/css':'text/html',body:bytes});
+    }catch{await route.fulfill({status:404,body:'Not found'});}
+    return;
+   }
+   await route.abort();
+  });
+  await page.goto(bookuur+'/bedrijfsomgeving/?start=bedrijf');
+  await page.getByRole('heading',{name:'Nieuw bedrijf aanmelden'}).waitFor();
+  assert.equal(await page.locator('#base').inputValue(),api,'Boekuur uses the correct team backend without manual entry');
+  assert.equal(await page.locator('#setupKey').count(),0,'Open registration must not ask for the private setup key');
+  assert.equal(await page.locator('#cloudUrl').count(),0,'STACK credentials are never used for company registration');
+  await page.waitForFunction(()=>document.querySelector('button.login-submit')?.disabled===true);
+  assert.match(await page.locator('#app').innerText(),/aparte|productieopslag|productiedatabase/i);
+  await page.locator('[data-team="login-mode"]').click();
+  await page.getByRole('heading',{name:'Inloggen'}).waitFor();
+  await page.locator('[data-team="register-mode"]').click();
+  await page.getByRole('heading',{name:'Nieuw bedrijf aanmelden'}).waitFor();
+  assert.equal(errors.length,0,errors.join('\n'));
+ }finally{await browser.close();}
+});
